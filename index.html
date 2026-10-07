@@ -146,6 +146,13 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
     <p class="note" id="keyHint" style="margin:0" hidden>⚠️ まず下の「設定」で AI サービスと API キーを入れてください。</p>
   </div>
 
+  <div class="card" id="bankCard">
+    <h3>📚 題庫 50回分 <small class="note">（オフラインOK・APIキー不要）</small></h3>
+    <p class="note" id="bankInfo" style="margin:0 0 10px">読み込み中…</p>
+    <button class="btn" id="bankNext" hidden>▶ 次の未受験を開く</button>
+    <details id="bankList" style="margin-top:10px"><summary class="note" style="cursor:pointer">一覧を見る</summary><div class="rows" id="bankRows"></div></details>
+  </div>
+
   <div class="card" id="testsCard" hidden>
     <h3>テスト一覧</h3>
     <div class="rows" id="testRows"></div>
@@ -277,6 +284,32 @@ function weakPoints(days){
   return Object.entries(cnt).map(([point,c])=>({point,...c}))
     .sort((a,b)=> (b.picked-a.picked) || (b.n-a.n));
 }
+let BANK = null, bankErr = false;
+async function loadBank(){
+  try{ const r = await fetch('bank.json'); if(!r.ok) throw new Error(r.status); BANK = await r.json(); }
+  catch(e){ bankErr = true; }
+  renderBank();
+}
+function bankStatus(id){
+  const r = getResults().filter(x=>x.testId===id).sort((a,b)=>b.at-a.at)[0];
+  const st = lsGet(K.st+id, null);
+  return {r, st, label: r ? (r.score+' / '+r.total) : (st && st.started ? '途中' : '未受験')};
+}
+function renderBank(){
+  if(!BANK){ $('bankInfo').textContent = bankErr ? '題庫ファイル（bank.json）が見つかりません。GitHub に bank.json をアップロードしてください。' : '読み込み中…'; return; }
+  const list = BANK.tests; let done = 0, next = null;
+  $('bankRows').innerHTML = '';
+  list.forEach(t=>{
+    const s = bankStatus(t.id); if(s.r) done++; else if(!next) next = t;
+    const div = document.createElement('div'); div.className='row link';
+    div.innerHTML = '<span>'+t.title+(t.topic?' <span class="note">'+esc(t.topic)+'</span>':'')+'</span><span>'+s.label+' ›</span>';
+    div.addEventListener('click',()=>openTest(t.id));
+    $('bankRows').appendChild(div);
+  });
+  $('bankInfo').textContent = '各回 14題型・35問・45分。完了 '+done+' / '+list.length+' 回';
+  $('bankNext').hidden = !next;
+  if(next){ $('bankNext').textContent = '▶ 次の未受験を開く（'+next.title+'）'; $('bankNext').onclick = ()=>openTest(next.id); }
+}
 function renderHome(){
   $('homeDate').textContent = 'JLPT N2 ・ ' + hkDate().replace(/-/g,'.') + ' ・ 言語知識＋読解';
   const cfg = getCfg();
@@ -306,6 +339,7 @@ function renderHome(){
   const mu = {in:0,out:0,usd:0}; let unknown=false; mTests.concat(mw).forEach(t=>{ const u=t.usage||t; mu.in+=u.in||0; mu.out+=u.out||0; if(u.usd==null) unknown=true; else mu.usd+=u.usd; }); if(unknown && !mu.usd) mu.usd=null;
   $('monthTok').hidden = !(mu.in||mu.out);
   $('monthTok').textContent = '🧮 今月（'+month.replace('-','.')+'）の合計：'+tokStr(mu)+'（'+mTests.length+'回作成'+(mw.length?'・失敗 '+mw.length+'回分を含む':'')+'）';
+  renderBank();
   const weak = weakPoints(14).slice(0,16);
   $('weakCard').hidden = !results.length;
   $('weakChips').innerHTML = weak.length ? weak.map(w=>'<span class="chip">'+esc(w.point)+(w.n>1?' ×'+w.n:'')+'</span>').join('') : '<span class="chip ok">弱点なし 🎉</span>';
@@ -323,6 +357,7 @@ $('saveSet').addEventListener('click',()=>{
 $('exportBtn').addEventListener('click',()=>{
   const data = {v:1, exportedAt:new Date().toISOString(), tests:getTests(), results:getResults(), states:{}};
   data.tests.forEach(t=>{ const s = lsGet(K.st+t.id,null); if(s) data.states[t.id]=s; });
+  try{ for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(k && k.indexOf(K.st)===0){ const id = k.slice(K.st.length); if(!data.states[id]) data.states[id] = lsGet(k,null); } } }catch(e){}
   const blob = new Blob([JSON.stringify(data)],{type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'N2模試_backup_'+hkDate()+'.json'; document.body.appendChild(a); a.click();
@@ -597,6 +632,7 @@ function apiHint(status, msg){
 
 let genAbort = null;
 async function generate(){
+  if(navigator.onLine===false){ $('genErr').textContent = '📴 今はオフラインなので新しい模試は作れません。上の「題庫」で練習できます。'; $('genErr').hidden = false; return; }
   const cfg = getCfg();
   if(!cfg.key || !cfg.base || !cfg.model){ $('setBox').open = true; $('keyHint').hidden=false; $('keyIn').focus(); return; }
   const {today, parts} = buildParts();
@@ -744,12 +780,12 @@ let cur = null; // {rec, T, flat, state, timer}
 const circ = ['1','2','3','4'];
 
 function openTest(id){
-  const rec = getTests().find(t=>t.id===id); if(!rec) return;
+  const rec = getTests().find(t=>t.id===id) || (BANK && BANK.tests.find(t=>t.id===id)); if(!rec) return;
   if(cur && cur.timer) clearInterval(cur.timer);
   const T = rec.data;
   cur = {rec, T, flat: flatQs(T), state: lsGet(K.st+id, null) || {started:null, answers:{}, submitted:false}, timer:null};
   $('home').hidden = true; $('test').hidden = false; window.scrollTo({top:0});
-  $('dateLine').textContent = 'JLPT N2 ・ ' + T.date.replace(/-/g,'.') + ' ・ 言語知識＋読解';
+  $('dateLine').textContent = 'JLPT N2 ・ ' + (rec.title || T.date.replace(/-/g,'.')) + ' ・ 言語知識＋読解';
   $('tokLine').hidden = !rec.usage; if(rec.usage) $('tokLine').textContent = '🧮 このテストの作成に使ったトークン：'+tokStr(rec.usage)+(rec.model?'（'+rec.model+'）':'');
   const mins = Math.round(T.limitSec/60);
   $('testLead').textContent = T.sections.length+'題型・'+cur.flat.length+'問。1問ずつ答えるとすぐ解説が出ます。'+mins+'分で自動提出です。';
@@ -933,6 +969,9 @@ function showResult(){
 
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && cur && !$('test').hidden) tick(); });
 renderHome();
+loadBank();
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+window.addEventListener('online', ()=>{ $('genErr').hidden = true; });
 })();
 </script>
 </body>
