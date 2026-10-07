@@ -83,6 +83,8 @@ section.sec{margin-top:36px}
 .exp{margin-top:12px;padding:12px;border-radius:6px;background:var(--accent-soft);font-size:15px}
 .exp .v{font-weight:700;margin-right:6px}
 .exp .v.ok{color:var(--ok)} .exp .v.ng{color:var(--red)}
+.exp ruby rt{font-size:.6em;color:var(--muted)}
+body.nofuri .exp rt{display:none}
 .exp table{border-collapse:collapse;margin-top:8px;font-size:14px;width:100%}
 .exp td,.exp th{border:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
 .tblwrap{overflow-x:auto}
@@ -139,6 +141,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
   <div class="card" id="testsCard" hidden>
     <h3>テスト一覧</h3>
     <div class="rows" id="testRows"></div>
+    <p class="note" id="monthTok" hidden style="margin:10px 0 0"></p>
   </div>
 
   <div class="card" id="weakCard" hidden>
@@ -164,6 +167,8 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
         <label class="f" for="modelIn">モデル名</label>
         <input class="t" id="modelIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
       </details>
+      <label class="f" style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="furiIn" style="width:20px;height:20px"> 解説の漢字にふりがなを付ける</label>
+      <p class="note" style="margin-top:0">オンにすると、次に作る模試から解説にふりがなが付きます。オフにすると表示も隠れます。</p>
       <p class="note">キーはこの端末の中だけに保存され、選んだ AI サービス以外には送られません。</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn small" id="saveSet">保存</button>
@@ -192,6 +197,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
   </div>
   <header class="top">
     <div class="eyebrow" id="dateLine"></div>
+    <p class="note" id="tokLine" hidden style="margin:2px 0 0"></p>
     <h1>N2 ミニ模試</h1>
     <p class="lead">語彙10問・文法12問・読解4問。1問ずつ答えるとすぐ解説が出ます。30分で自動提出です。</p>
   </header>
@@ -224,7 +230,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
 const $ = id => document.getElementById(id);
 const GRAMMAR = JSON.parse($('grammar-data').textContent);
 const VOCAB = JSON.parse($('vocab-data').textContent);
-const K = {cfg:'n2a.cfg', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.'};
+const K = {cfg:'n2a.cfg', furi:'n2a.furi', waste:'n2a.waste', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.'};
 
 /* ---------- storage helpers ---------- */
 const mem = {};
@@ -268,6 +274,8 @@ function renderHome(){
   $('homeDate').textContent = 'JLPT N2 ・ ' + hkDate().replace(/-/g,'.') + ' ・ 言語知識＋読解';
   const cfg = getCfg();
   fillCfgForm(cfg);
+  $('furiIn').checked = lsGet(K.furi, true);
+  document.body.classList.toggle('nofuri', !lsGet(K.furi, true));
   $('keyHint').hidden = !!cfg.key;
   if(!cfg.key) $('setBox').open = true;
 
@@ -281,10 +289,16 @@ function renderHome(){
     const status = r ? (r.score+' / '+r.total) : (st && st.started ? '途中' : '未受験');
     const div = document.createElement('div'); div.className='row link';
     const sameDay = tests.filter(x=>x.date===t.date).length>1;
-    div.innerHTML = '<span>'+t.date.replace(/-/g,'.')+(sameDay?' <span class="badge">#'+(tests.filter(x=>x.date===t.date).reverse().indexOf(t)+1)+'</span>':'')+(t.label?' <span class="note">'+t.label+'</span>':'')+(i===0&&!r?' <span class="badge">NEW</span>':'')+'</span><span>'+status+' ›</span>';
+    div.innerHTML = '<span>'+t.date.replace(/-/g,'.')+(sameDay?' <span class="badge">#'+(tests.filter(x=>x.date===t.date).reverse().indexOf(t)+1)+'</span>':'')+(t.label?' <span class="note">'+t.label+'</span>':'')+(i===0&&!r?' <span class="badge">NEW</span>':'')+(t.usage?'<br><span class="note">🧮 '+fmtN(t.usage.in+t.usage.out)+' tokens</span>':'')+'</span><span>'+status+' ›</span>';
     div.addEventListener('click',()=>openTest(t.id));
     $('testRows').appendChild(div);
   });
+  const month = hkDate().slice(0,7);
+  const mTests = tests.filter(t=>t.usage && t.date.slice(0,7)===month);
+  const mw = lsGet(K.waste, []).filter(w=>hkDate(new Date(w.at)).slice(0,7)===month);
+  const mu = {in:0,out:0}; mTests.concat(mw).forEach(t=>{ const u=t.usage||t; mu.in+=u.in||0; mu.out+=u.out||0; });
+  $('monthTok').hidden = !(mu.in||mu.out);
+  $('monthTok').textContent = '🧮 今月（'+month.replace('-','.')+'）の合計：'+tokStr(mu)+'（'+mTests.length+'回作成'+(mw.length?'・失敗 '+mw.length+'回分を含む':'')+'）';
   const weak = weakPoints(14).slice(0,16);
   $('weakCard').hidden = !results.length;
   $('weakChips').innerHTML = weak.length ? weak.map(w=>'<span class="chip">'+esc(w.point)+(w.n>1?' ×'+w.n:'')+'</span>').join('') : '<span class="chip ok">弱点なし 🎉</span>';
@@ -295,6 +309,7 @@ $('saveSet').addEventListener('click',()=>{
   const c = readCfgForm();
   if(!c.base || !c.model){ $('setMsg').textContent = 'URL とモデル名を入れてください（詳細設定）'; return; }
   lsSet(K.cfg, c);
+  lsSet(K.furi, $('furiIn').checked);
   $('setMsg').textContent = '✅ 保存しました';
   renderHome();
 });
@@ -359,8 +374,7 @@ $('provIn').addEventListener('change', ()=>{
 });
 
 const Q_SHAPE = '{"q":"問題文","o":["選択肢A","選択肢B","選択肢C","選択肢D"],"a":0,"pt":"文型・語彙名","e":"解説HTML"}';
-const COMMON_RULES =
-`あなたは廣東話母語の学習者を JLPT N2 合格へ導く、親切で生き生きとした日本語教師です。本番形式の模試問題を作り、指定された JSON だけを出力します。
+function commonRules(){ const furi = lsGet(K.furi, true); return `あなたは廣東話母語の学習者を JLPT N2 合格へ導く、親切で生き生きとした日本語教師です。本番形式の模試問題を作り、指定された JSON だけを出力します。
 
 【解説 e のルール】
 - 100% 日本語。親切・生き生きとした先生口調、少しユーモア、絵文字OK。⭕️❌△⚠️💡で正誤と要点を示す。
@@ -370,12 +384,13 @@ const COMMON_RULES =
 - 1問の解説は簡潔に（100〜200字＋表）。表は3〜4行まで。
 
 【全体ルール】
-- ふりがな・読みがなを付けない（漢字読み問題の選択肢だけは例外）。
+${furi ? `- 解説 e の中の漢字語には、HTML の <ruby> でふりがなを付ける。例：<ruby>締<rt>し</rt></ruby>め<ruby>切<rt>き</rt></ruby>り、<ruby>著<rt>いちじる</rt></ruby>しい、<ruby>矛盾<rt>むじゅん</rt></ruby>。送り仮名は ruby の外に出す。人・日・本・大・小・上・下・中・山・川・学生 などごく簡単な漢字には不要。
+- 問題文 q・選択肢 o・読解の本文 text にはふりがなを付けない（答えが分かってしまうため）。` : `- ふりがな・読みがなを付けない（漢字読み問題の選択肢だけは例外）。`}
 - 正解は必ず1つに決まること。出力前に全問を自分で解き直し、他の選択肢でも成立する問題は作り直す。
 - a は正解選択肢の index（0〜3）。正解の位置は偏らせない。
 - 問題文の空欄は（　　）、下線は <u>…</u> を使う。
 - 自然で現代的な日本語。
-- 出力は JSON オブジェクトのみ（説明文やコードブロック記号は書かない）。各問題の形：${Q_SHAPE}`;
+- 出力は JSON オブジェクトのみ（説明文やコードブロック記号は書かない）。各問題の形：${Q_SHAPE}`; }
 
 function pick(arr, n){ const a = arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a.slice(0,n); }
 
@@ -451,15 +466,16 @@ function validatePart(part, raw){
   return raw;
 }
 
-async function callChat(cfg, system, user, onChunk, signal, maxTokens){
-  if(cfg.provider==='anthropic') return callClaude(cfg, system, user, onChunk, signal, maxTokens);
+async function callChat(cfg, system, user, onChunk, signal, maxTokens, usage){
+  usage = usage || {in:0,out:0};
+  if(cfg.provider==='anthropic') return callClaude(cfg, system, user, onChunk, signal, maxTokens, usage);
   let res;
   try{
     res = await fetch(cfg.base+'/chat/completions', {
       method:'POST', signal,
       headers:{'content-type':'application/json','authorization':'Bearer '+cfg.key},
       body: JSON.stringify({model:cfg.model, stream:true, temperature:0.8, max_tokens:maxTokens||8000,
-        response_format:{type:'json_object'},
+        response_format:{type:'json_object'}, stream_options:{include_usage:true},
         messages:[{role:'system',content:system},{role:'user',content:user}]})
     });
   }catch(e){
@@ -482,6 +498,7 @@ async function callChat(cfg, system, user, onChunk, signal, maxTokens){
       const d = line.slice(5).trim(); if(d==='[DONE]') continue;
       let ev; try{ ev = JSON.parse(d); }catch(e){ continue; }
       if(ev.error) throw new Error(ev.error.message||'API error');
+      if(ev.usage){ usage.in += ev.usage.prompt_tokens||0; usage.out += ev.usage.completion_tokens||0; }
       const ch = ev.choices && ev.choices[0]; if(!ch) continue;
       const t = ch.delta && ch.delta.content; if(t){ out += t; onChunk && onChunk(t.length); }
       if(ch.finish_reason) finish = ch.finish_reason;
@@ -490,7 +507,7 @@ async function callChat(cfg, system, user, onChunk, signal, maxTokens){
   if(finish==='length') throw new Error('出力が長すぎて途中で切れました');
   return out;
 }
-async function callClaude(cfg, system, user, onChunk, signal, maxTokens){
+async function callClaude(cfg, system, user, onChunk, signal, maxTokens, usage){
   let res;
   try{
     res = await fetch(cfg.base+'/v1/messages', {
@@ -521,7 +538,8 @@ async function callClaude(cfg, system, user, onChunk, signal, maxTokens){
       if(!line.startsWith('data:')) continue;
       let ev; try{ ev = JSON.parse(line.slice(5)); }catch(e){ continue; }
       if(ev.type==='content_block_delta' && ev.delta && ev.delta.type==='text_delta'){ out += ev.delta.text; onChunk && onChunk(ev.delta.text.length); }
-      else if(ev.type==='message_delta' && ev.delta) stop = ev.delta.stop_reason;
+      else if(ev.type==='message_start' && ev.message && ev.message.usage){ const u = ev.message.usage; usage.in += (u.input_tokens||0)+(u.cache_creation_input_tokens||0)+(u.cache_read_input_tokens||0); }
+      else if(ev.type==='message_delta'){ if(ev.delta) stop = ev.delta.stop_reason; if(ev.usage && ev.usage.output_tokens) usage.out += ev.usage.output_tokens; }
       else if(ev.type==='error') throw new Error((ev.error&&ev.error.message)||'API error');
     }
   }
@@ -546,7 +564,7 @@ async function generate(){
   $('genBar').style.width='2%';
   let wake = null; try{ wake = await navigator.wakeLock.request('screen'); }catch(e){}
   genAbort = new AbortController();
-  const t0 = Date.now(); let chars = 0; const state = {};
+  const t0 = Date.now(); let chars = 0; const state = {}; const usage = {in:0,out:0};
   parts.forEach(p=>state[p.key]='作成中');
   const tick = setInterval(()=>{
     $('genBar').style.width = Math.min(97, 3 + chars/16000*94)+'%';
@@ -558,7 +576,7 @@ async function generate(){
       for(let attempt=0; attempt<2; attempt++){
         try{
           if(attempt) state[part.key]='やり直し中';
-          const txt = await callChat(cfg, COMMON_RULES, part.user, n=>{chars+=n;}, genAbort.signal);
+          const txt = await callChat(cfg, commonRules(), part.user, n=>{chars+=n;}, genAbort.signal, undefined, usage);
           const raw = validatePart(part, parseLooseJSON(txt));
           state[part.key]='✅';
           return raw;
@@ -574,22 +592,25 @@ async function generate(){
     const data = assemble(merged, today);
     const tests = getTests();
     const id = today+'-'+Date.now().toString(36);
-    tests.push({id, date:today, createdAt:Date.now(), data, model:cfg.model});
+    tests.push({id, date:today, createdAt:Date.now(), data, model:cfg.model, usage:{in:usage.in, out:usage.out}});
     tests.sort((a,b)=>b.createdAt-a.createdAt);
     tests.slice(40).forEach(t=>lsDel(K.st+t.id));
     lsSet(K.tests, tests.slice(0,40));
     $('genBar').style.width='100%';
-    $('genText').textContent = '完成！（'+Math.round((Date.now()-t0)/1000)+'秒）';
-    setTimeout(()=>{ $('genStatus').hidden = true; openTest(id); }, 600);
+    $('genText').textContent = '完成！（'+Math.round((Date.now()-t0)/1000)+'秒・'+tokStr(usage)+'）';
+    setTimeout(()=>{ $('genStatus').hidden = true; openTest(id); }, 1200);
   }catch(err){
     genAbort && genAbort.abort();
     $('genStatus').hidden = true;
-    if(err.name!=='AbortError' || !$('genErr').hidden){ $('genErr').textContent = '❌ '+err.message; $('genErr').hidden = false; }
+    if(usage.in||usage.out){ const w = lsGet(K.waste, []); w.push({at:Date.now(), in:usage.in, out:usage.out}); lsSet(K.waste, w.slice(-100)); }
+    if(err.name!=='AbortError' || !$('genErr').hidden){ $('genErr').textContent = '❌ '+err.message + ((usage.in||usage.out) ? '\n（今回使ったトークン：'+tokStr(usage)+'）' : ''); $('genErr').hidden = false; }
   }finally{
     clearInterval(tick); $('genBtn').disabled = false; genAbort = null;
     try{ wake && wake.release(); }catch(e){}
   }
 }
+function fmtN(n){ return Number(n||0).toLocaleString('en-US'); }
+function tokStr(u){ return '入力 '+fmtN(u.in)+' / 出力 '+fmtN(u.out)+' / 合計 '+fmtN((u.in||0)+(u.out||0))+' tokens'; }
 function assemble(raw, today){
   const mmdd = today.slice(5).replace('-','');
   let n = 0;
@@ -607,6 +628,7 @@ function assemble(raw, today){
 }
 
 $('genBtn').addEventListener('click', generate);
+$('furiIn').addEventListener('change', ()=>{ lsSet(K.furi, $('furiIn').checked); document.body.classList.toggle('nofuri', !$('furiIn').checked); });
 $('genCancel').addEventListener('click', ()=>{ if(genAbort) genAbort.abort(); });
 $('testBtn').addEventListener('click', async ()=>{
   const cfg = readCfgForm();
@@ -638,6 +660,7 @@ function openTest(id){
   cur = {rec, T, flat: flatQs(T), state: lsGet(K.st+id, null) || {started:null, answers:{}, submitted:false}, timer:null};
   $('home').hidden = true; $('test').hidden = false; window.scrollTo({top:0});
   $('dateLine').textContent = 'JLPT N2 ・ ' + T.date.replace(/-/g,'.') + ' ・ 言語知識＋読解';
+  $('tokLine').hidden = !rec.usage; if(rec.usage) $('tokLine').textContent = '🧮 このテストの作成に使ったトークン：'+tokStr(rec.usage)+(rec.model?'（'+rec.model+'）':'');
   $('count').textContent = '0 / '+cur.flat.length;
   $('progbar').style.width = '0';
   $('clock').textContent = fmt(T.limitSec); $('clock').classList.remove('low','paused');
