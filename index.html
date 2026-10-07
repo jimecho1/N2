@@ -80,11 +80,16 @@ section.sec{margin-top:36px}
 .opt.right .bub{border-color:var(--ok);color:var(--ok)}
 .opt.wrong{background:var(--red-soft);border-color:var(--red)}
 .opt:disabled{cursor:default;color:var(--ink)}
-.exp{margin-top:12px;padding:12px;border-radius:6px;background:var(--accent-soft);font-size:15px}
+.exp{position:relative;margin-top:12px;padding:12px;border-radius:6px;background:var(--accent-soft);font-size:15px}
+.furiq{float:right;margin:-4px -4px 4px 8px;font:inherit;font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid var(--accent);background:var(--sheet);color:var(--accent);cursor:pointer;-webkit-appearance:none}
+.furiq.off{background:transparent;color:var(--muted);border-color:var(--line)}
+#furiTop{min-width:74px}
+#furiTop.off{background:transparent;color:var(--muted);border:1px solid var(--line)}
 .exp .v{font-weight:700;margin-right:6px}
 .exp .v.ok{color:var(--ok)} .exp .v.ng{color:var(--red)}
 .exp ruby rt{font-size:.6em;color:var(--muted)}
-body.nofuri .exp rt{display:none}
+body.nofuri .exp:not(.furi-on) rt{display:none}
+.exp.furi-off rt{display:none}
 .exp table{border-collapse:collapse;margin-top:8px;font-size:14px;width:100%}
 .exp td,.exp th{border:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
 .tblwrap{overflow-x:auto}
@@ -166,6 +171,12 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
         <input class="t" id="baseIn" type="url" autocomplete="off" autocapitalize="off" spellcheck="false">
         <label class="f" for="modelIn">モデル名</label>
         <input class="t" id="modelIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <label class="f">単価（US$ / 100万トークン）<span class="note">空欄なら自動</span></label>
+        <div style="display:flex;gap:8px">
+          <input class="t" id="pInIn" type="number" step="0.001" min="0" inputmode="decimal" placeholder="入力">
+          <input class="t" id="pOutIn" type="number" step="0.001" min="0" inputmode="decimal" placeholder="出力">
+        </div>
+        <p class="note" id="priceNote" style="margin:4px 0 0"></p>
       </details>
       <label class="f" style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="furiIn" style="width:20px;height:20px"> 解説の漢字にふりがなを付ける</label>
       <p class="note" style="margin-top:0">オンにすると、次に作る模試から解説にふりがなが付きます。オフにすると表示も隠れます。</p>
@@ -190,6 +201,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
     <span class="clock" id="clock">30:00</span>
     <div class="prog"><i id="progbar"></i></div>
     <span class="count" id="count">0 / 26</span>
+    <button class="btn small" id="furiTop" type="button" aria-label="すべての解説のふりがなを切り替え">あ ON</button>
     <button class="btn small" id="pauseBtn" hidden>一時停止</button>
     <button class="btn ghost small" id="finishBtn" hidden>提出する</button>
     <button class="btn ghost small" id="resetTimerBtn" hidden>⏱ 30分に戻す</button>
@@ -289,14 +301,14 @@ function renderHome(){
     const status = r ? (r.score+' / '+r.total) : (st && st.started ? '途中' : '未受験');
     const div = document.createElement('div'); div.className='row link';
     const sameDay = tests.filter(x=>x.date===t.date).length>1;
-    div.innerHTML = '<span>'+t.date.replace(/-/g,'.')+(sameDay?' <span class="badge">#'+(tests.filter(x=>x.date===t.date).reverse().indexOf(t)+1)+'</span>':'')+(t.label?' <span class="note">'+t.label+'</span>':'')+(i===0&&!r?' <span class="badge">NEW</span>':'')+(t.usage?'<br><span class="note">🧮 '+fmtN(t.usage.in+t.usage.out)+' tokens</span>':'')+'</span><span>'+status+' ›</span>';
+    div.innerHTML = '<span>'+t.date.replace(/-/g,'.')+(sameDay?' <span class="badge">#'+(tests.filter(x=>x.date===t.date).reverse().indexOf(t)+1)+'</span>':'')+(t.label?' <span class="note">'+t.label+'</span>':'')+(i===0&&!r?' <span class="badge">NEW</span>':'')+(t.usage?'<br><span class="note">🧮 '+fmtN(t.usage.in+t.usage.out)+' tokens'+(t.usage.usd!=null?' ・ US$'+(t.usage.usd<0.01?t.usage.usd.toFixed(4):t.usage.usd.toFixed(3)):'')+'</span>':'')+'</span><span>'+status+' ›</span>';
     div.addEventListener('click',()=>openTest(t.id));
     $('testRows').appendChild(div);
   });
   const month = hkDate().slice(0,7);
   const mTests = tests.filter(t=>t.usage && t.date.slice(0,7)===month);
   const mw = lsGet(K.waste, []).filter(w=>hkDate(new Date(w.at)).slice(0,7)===month);
-  const mu = {in:0,out:0}; mTests.concat(mw).forEach(t=>{ const u=t.usage||t; mu.in+=u.in||0; mu.out+=u.out||0; });
+  const mu = {in:0,out:0,usd:0}; let unknown=false; mTests.concat(mw).forEach(t=>{ const u=t.usage||t; mu.in+=u.in||0; mu.out+=u.out||0; if(u.usd==null) unknown=true; else mu.usd+=u.usd; }); if(unknown && !mu.usd) mu.usd=null;
   $('monthTok').hidden = !(mu.in||mu.out);
   $('monthTok').textContent = '🧮 今月（'+month.replace('-','.')+'）の合計：'+tokStr(mu)+'（'+mTests.length+'回作成'+(mw.length?'・失敗 '+mw.length+'回分を含む':'')+'）';
   const weak = weakPoints(14).slice(0,16);
@@ -310,7 +322,7 @@ $('saveSet').addEventListener('click',()=>{
   if(!c.base || !c.model){ $('setMsg').textContent = 'URL とモデル名を入れてください（詳細設定）'; return; }
   lsSet(K.cfg, c);
   lsSet(K.furi, $('furiIn').checked);
-  $('setMsg').textContent = '✅ 保存しました';
+  $('setMsg').textContent = '✅ 保存しました'; fillCfgForm(getCfg());
   renderHome();
 });
 $('exportBtn').addEventListener('click',()=>{
@@ -342,7 +354,7 @@ $('importIn').addEventListener('change', async e=>{
 /* ---------- GENERATION ---------- */
 const PROVIDERS = {
   anthropic:{label:'Claude（Anthropic）', base:'https://api.anthropic.com', model:'claude-sonnet-5-5', keyPh:'sk-ant-...'},
-  deepseek:{label:'DeepSeek', base:'https://api.deepseek.com', model:'deepseek-chat', keyPh:'sk-...'},
+  deepseek:{label:'DeepSeek', base:'https://api.deepseek.com', model:'deepseek-flash', keyPh:'sk-...', maxOut:16000},
   qwen:{label:'通義千問 Qwen（Alibaba Cloud 国際版）', base:'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model:'qwen-plus', keyPh:'sk-...'},
   custom:{label:'その他（OpenAI 互換 API）', base:'', model:'', keyPh:''}
 };
@@ -361,16 +373,20 @@ function getCfg(){
   return c;
 }
 function readCfgForm(){
-  return {provider:$('provIn').value, base:$('baseIn').value.trim().replace(/\/+$/,''), model:$('modelIn').value.trim(), key:$('keyIn').value.trim()};
+  const num = v => v==='' ? null : (isFinite(+v) ? +v : null);
+  return {provider:$('provIn').value, base:$('baseIn').value.trim().replace(/\/+$/,''), model:$('modelIn').value.trim(), key:$('keyIn').value.trim(), pIn:num($('pInIn').value), pOut:num($('pOutIn').value)};
 }
 function fillCfgForm(c){
   $('provIn').value = c.provider; $('baseIn').value = c.base; $('modelIn').value = c.model; $('keyIn').value = c.key;
+  $('pInIn').value = c.pIn==null ? '' : c.pIn; $('pOutIn').value = c.pOut==null ? '' : c.pOut;
+  const pr = priceFor(c); $('priceNote').textContent = pr ? '今の単価：入力 $'+pr.in+' / 出力 $'+pr.out+'（'+pr.src+'）' : '⚠️ このモデルの単価が分からないので、金額は表示されません。上に入力してください。';
   $('keyIn').placeholder = (PROVIDERS[c.provider]||{}).keyPh || '';
 }
 $('provIn').addEventListener('change', ()=>{
   const p = PROVIDERS[$('provIn').value];
   if($('provIn').value!=='custom'){ $('baseIn').value = p.base; $('modelIn').value = p.model; }
   $('keyIn').placeholder = p.keyPh;
+  $('modelIn').dispatchEvent(new Event('input'));
 });
 
 const Q_SHAPE = '{"q":"問題文","o":["選択肢A","選択肢B","選択肢C","選択肢D"],"a":0,"pt":"文型・語彙名","e":"解説HTML"}';
@@ -384,7 +400,7 @@ function commonRules(){ const furi = lsGet(K.furi, true); return `あなたは�
 - 1問の解説は簡潔に（100〜200字＋表）。表は3〜4行まで。
 
 【全体ルール】
-${furi ? `- 解説 e の中の漢字語には、HTML の <ruby> でふりがなを付ける。例：<ruby>締<rt>し</rt></ruby>め<ruby>切<rt>き</rt></ruby>り、<ruby>著<rt>いちじる</rt></ruby>しい、<ruby>矛盾<rt>むじゅん</rt></ruby>。送り仮名は ruby の外に出す。人・日・本・大・小・上・下・中・山・川・学生 などごく簡単な漢字には不要。
+${furi ? `- 【重要】解説 e の中の漢字は、例外なく全部に HTML の <ruby> でふりがなを付ける。キーワードだけでなく、普通の言葉・簡単な漢字（人、日、本、上、手、時、言う、行く、来る など）・表 <table> の中・「正しい順番」の中も全部。熟語は熟語単位で：<ruby>矛盾<rt>むじゅん</rt></ruby>、<ruby>意味<rt>いみ</rt></ruby>。送り仮名は ruby の外：<ruby>言<rt>い</rt></ruby>う、<ruby>締<rt>し</rt></ruby>め<ruby>切<rt>き</rt></ruby>り。読みは文脈に合わせる（<ruby>今日<rt>きょう</rt></ruby>、<ruby>一人<rt>ひとり</rt></ruby>）。出力前に、e の中に ruby が付いていない漢字が残っていないか必ず確認する。
 - 問題文 q・選択肢 o・読解の本文 text にはふりがなを付けない（答えが分かってしまうため）。` : `- ふりがな・読みがなを付けない（漢字読み問題の選択肢だけは例外）。`}
 - 正解は必ず1つに決まること。出力前に全問を自分で解き直し、他の選択肢でも成立する問題は作り直す。
 - a は正解選択肢の index（0〜3）。正解の位置は偏らせない。
@@ -474,7 +490,7 @@ async function callChat(cfg, system, user, onChunk, signal, maxTokens, usage){
     res = await fetch(cfg.base+'/chat/completions', {
       method:'POST', signal,
       headers:{'content-type':'application/json','authorization':'Bearer '+cfg.key},
-      body: JSON.stringify({model:cfg.model, stream:true, temperature:0.8, max_tokens:maxTokens||8000,
+      body: JSON.stringify({model:cfg.model, stream:true, temperature:0.8, max_tokens:maxTokens||((PROVIDERS[cfg.provider]||{}).maxOut)||8000,
         response_format:{type:'json_object'}, stream_options:{include_usage:true},
         messages:[{role:'system',content:system},{role:'user',content:user}]})
     });
@@ -592,7 +608,8 @@ async function generate(){
     const data = assemble(merged, today);
     const tests = getTests();
     const id = today+'-'+Date.now().toString(36);
-    tests.push({id, date:today, createdAt:Date.now(), data, model:cfg.model, usage:{in:usage.in, out:usage.out}});
+    usage.usd = costOf(usage, priceFor(cfg));
+    tests.push({id, date:today, createdAt:Date.now(), data, model:cfg.model, usage:{in:usage.in, out:usage.out, usd:usage.usd}});
     tests.sort((a,b)=>b.createdAt-a.createdAt);
     tests.slice(40).forEach(t=>lsDel(K.st+t.id));
     lsSet(K.tests, tests.slice(0,40));
@@ -602,15 +619,39 @@ async function generate(){
   }catch(err){
     genAbort && genAbort.abort();
     $('genStatus').hidden = true;
-    if(usage.in||usage.out){ const w = lsGet(K.waste, []); w.push({at:Date.now(), in:usage.in, out:usage.out}); lsSet(K.waste, w.slice(-100)); }
+    if(usage.in||usage.out){ usage.usd = costOf(usage, priceFor(cfg)); const w = lsGet(K.waste, []); w.push({at:Date.now(), in:usage.in, out:usage.out, usd:usage.usd}); lsSet(K.waste, w.slice(-100)); }
     if(err.name!=='AbortError' || !$('genErr').hidden){ $('genErr').textContent = '❌ '+err.message + ((usage.in||usage.out) ? '\n（今回使ったトークン：'+tokStr(usage)+'）' : ''); $('genErr').hidden = false; }
   }finally{
     clearInterval(tick); $('genBtn').disabled = false; genAbort = null;
     try{ wake && wake.release(); }catch(e){}
   }
 }
+/* 公式価格（US$ / 100万トークン）。2026年10月時点 */
+const PRICES = [
+  ['claude-fable-5-1',10,50], ['claude-mythos-5-1',10,50], ['claude-fable-5',10,50],
+  ['claude-opus-5-5',4,20], ['claude-opus-5',5,25],
+  ['claude-sonnet-5-5',2,10], ['claude-sonnet-5',2,10],
+  ['claude-haiku-4-5',1,5],
+  ['deepseek-v4-pro',[0.66,1.32],[1.98,3.96]], ['deepseek-flash',[0.15,0.3],[0.6,1.2]], ['deepseek-v4-flash',[0.15,0.3],[0.6,1.2]]
+];
+const USD_HKD = 7.8;
+function deepseekPeak(d){ d = d||new Date(); const day = d.getUTCDay(), h = d.getUTCHours(); return day>=1 && day<=5 && ((h>=1&&h<4)||(h>=6&&h<10)); }
+function priceFor(cfg, when){
+  if(cfg.pIn!=null && cfg.pOut!=null) return {in:cfg.pIn, out:cfg.pOut, src:'手入力'};
+  const m = (cfg.model||'').toLowerCase();
+  const hit = PRICES.filter(p=>m.startsWith(p[0])).sort((a,b)=>b[0].length-a[0].length)[0];
+  if(!hit) return null;
+  if(Array.isArray(hit[1])){ const pk = deepseekPeak(when) ? 1 : 0; return {in:hit[1][pk], out:hit[2][pk], src:'公式価格・'+(pk?'ピーク時間':'オフピーク')}; }
+  return {in:hit[1], out:hit[2], src:'公式価格'};
+}
+function costOf(u, pr){ return pr ? ((u.in||0)*pr.in + (u.out||0)*pr.out)/1e6 : null; }
+function moneyStr(usd){
+  if(usd==null) return '';
+  const f = v => v<0.01 ? v.toFixed(4) : v<1 ? v.toFixed(3) : v.toFixed(2);
+  return 'US$'+f(usd)+'（約 HK$'+f(usd*USD_HKD)+'）';
+}
 function fmtN(n){ return Number(n||0).toLocaleString('en-US'); }
-function tokStr(u){ return '入力 '+fmtN(u.in)+' / 出力 '+fmtN(u.out)+' / 合計 '+fmtN((u.in||0)+(u.out||0))+' tokens'; }
+function tokStr(u){ return '入力 '+fmtN(u.in)+' / 出力 '+fmtN(u.out)+' / 合計 '+fmtN((u.in||0)+(u.out||0))+' tokens' + (u.usd!=null ? ' ≈ '+moneyStr(u.usd) : ''); }
 function assemble(raw, today){
   const mmdd = today.slice(5).replace('-','');
   let n = 0;
@@ -628,7 +669,8 @@ function assemble(raw, today){
 }
 
 $('genBtn').addEventListener('click', generate);
-$('furiIn').addEventListener('change', ()=>{ lsSet(K.furi, $('furiIn').checked); document.body.classList.toggle('nofuri', !$('furiIn').checked); });
+['provIn','modelIn','pInIn','pOutIn'].forEach(id=>$(id).addEventListener('input', ()=>{ const pr = priceFor(readCfgForm()); $('priceNote').textContent = pr ? '今の単価：入力 $'+pr.in+' / 出力 $'+pr.out+'（'+pr.src+'）' : '⚠️ このモデルの単価が分からないので、金額は表示されません。上に入力してください。'; }));
+$('furiIn').addEventListener('change', ()=>setFuriGlobal($('furiIn').checked));
 $('genCancel').addEventListener('click', ()=>{ if(genAbort) genAbort.abort(); });
 $('testBtn').addEventListener('click', async ()=>{
   const cfg = readCfgForm();
@@ -664,6 +706,7 @@ function openTest(id){
   $('count').textContent = '0 / '+cur.flat.length;
   $('progbar').style.width = '0';
   $('clock').textContent = fmt(T.limitSec); $('clock').classList.remove('low','paused');
+  $('paper').innerHTML = ''; syncFuriBtns();
   $('startBox').hidden = false; $('paper').hidden = true; $('result').hidden = true; $('pauseBox').hidden = true;
   ['pauseBtn','finishBtn','resetTimerBtn','retryBtn'].forEach(b=>$(b).hidden=true);
   if(cur.state.started) begin();
@@ -710,9 +753,31 @@ function paint(q){
   });
   const ex = card.querySelector('.exp');
   const v = pick===undefined ? '<span class="v ng">未回答</span>' : pick===q.a ? '<span class="v ok">⭕️ 正解！</span>' : '<span class="v ng">❌ 残念</span>';
-  ex.innerHTML = v + '正解は '+(q.a+1)+'「'+q.o[q.a]+'」<div class="tblwrap">'+q.e+'</div>';
+  const hasRuby = /<rt>/i.test(q.e||'');
+  ex.innerHTML = (hasRuby ? '<button type="button" class="furiq" aria-label="この解説のふりがなを切り替え"></button>' : '') + v + '正解は '+(q.a+1)+'「'+q.o[q.a]+'」<div class="tblwrap">'+q.e+'</div>';
+  ex.classList.remove('furi-on','furi-off');
+  if(hasRuby){ const b = ex.querySelector('.furiq'); b.addEventListener('click', ()=>{
+    const vis = furiVisible(ex);
+    ex.classList.toggle('furi-off', vis); ex.classList.toggle('furi-on', !vis); syncFuriBtns();
+  }); }
   ex.hidden = false;
+  syncFuriBtns();
 }
+function furiGlobal(){ return !document.body.classList.contains('nofuri'); }
+function furiVisible(ex){ return ex.classList.contains('furi-on') || (furiGlobal() && !ex.classList.contains('furi-off')); }
+function syncFuriBtns(){
+  const g = furiGlobal();
+  const t = $('furiTop'); t.textContent = g ? 'あ ON' : 'あ OFF'; t.classList.toggle('off', !g);
+  t.hidden = !document.querySelector('#paper .exp rt');
+  document.querySelectorAll('#paper .exp').forEach(ex=>{ const b = ex.querySelector('.furiq'); if(!b) return; const v = furiVisible(ex); b.textContent = v ? 'あ ふりがな ON' : 'あ ふりがな OFF'; b.classList.toggle('off', !v); });
+}
+function setFuriGlobal(on){
+  lsSet(K.furi, on); document.body.classList.toggle('nofuri', !on);
+  try{ $('furiIn').checked = on; }catch(e){}
+  document.querySelectorAll('#paper .exp').forEach(ex=>ex.classList.remove('furi-on','furi-off'));
+  syncFuriBtns();
+}
+$('furiTop').addEventListener('click', ()=>setFuriGlobal(!furiGlobal()));
 function answer(q,i){
   const st = cur.state;
   if(st.submitted || st.pausedAt || st.answers[q.id]!==undefined) return;
