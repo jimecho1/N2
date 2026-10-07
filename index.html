@@ -107,6 +107,8 @@ body.nofuri .exp:not(.furi-on) rt{display:none}
 .row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px dashed var(--line);padding-bottom:6px}
 .row span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .row.link{cursor:pointer}
+.delbtn{font:inherit;font-size:13px;margin-right:8px;padding:2px 8px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;-webkit-appearance:none}
+.delbtn.armed{border-color:var(--red);color:var(--red);font-weight:700}
 .row.link:hover{color:var(--accent)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chip{font-size:13px;padding:2px 10px;border-radius:999px;background:var(--red-soft);color:var(--red)}
@@ -331,6 +333,14 @@ function renderHome(){
     const sameDay = tests.filter(x=>x.date===t.date).length>1;
     div.innerHTML = '<span>'+t.date.replace(/-/g,'.')+(sameDay?' <span class="badge">#'+(tests.filter(x=>x.date===t.date).reverse().indexOf(t)+1)+'</span>':'')+(t.label?' <span class="note">'+t.label+'</span>':'')+(i===0&&!r?' <span class="badge">NEW</span>':'')+(t.usage?'<br><span class="note">🧮 '+fmtN(t.usage.in+t.usage.out)+' tokens'+(t.usage.usd!=null?' ・ US$'+(t.usage.usd<0.01?t.usage.usd.toFixed(4):t.usage.usd.toFixed(3)):'')+'</span>':'')+'</span><span>'+status+' ›</span>';
     div.addEventListener('click',()=>openTest(t.id));
+    const del = document.createElement('button'); del.type='button'; del.className='delbtn'; del.textContent='🗑'; del.setAttribute('aria-label','このテストを削除');
+    let armed = false;
+    del.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      if(!armed){ armed = true; del.textContent='削除する？'; del.classList.add('armed'); setTimeout(()=>{ armed=false; del.textContent='🗑'; del.classList.remove('armed'); }, 4000); return; }
+      lsSet(K.tests, getTests().filter(x=>x.id!==t.id)); lsDel(K.st+t.id); renderHome();
+    });
+    div.lastElementChild.prepend(del);
     $('testRows').appendChild(div);
   });
   const month = hkDate().slice(0,7);
