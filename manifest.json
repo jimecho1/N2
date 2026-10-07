@@ -1,0 +1,17 @@
+{
+ "name": "N2 ミニ模試",
+ "short_name": "N2模試",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#f3f4ef",
+ "theme_color": "#2f5d62",
+ "icons": [
+  {
+   "src": "icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  }
+ ]
+}

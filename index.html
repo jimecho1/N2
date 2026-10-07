@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="N2模試">
+<meta name="theme-color" content="#f3f4ef">
+<link rel="apple-touch-icon" href="icon-512.png">
+<link rel="icon" href="icon-512.png">
+<link rel="manifest" href="manifest.json">
+<title>N2 ミニ模試</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  --paper:#f3f4ef; --sheet:#fbfbf8; --ink:#1e2422; --muted:#5f6a66; --line:#d6dad2;
+  --accent:#2f5d62; --accent-soft:#e1ebe9; --red:#c0392b; --red-soft:#f7e3df; --ok:#2e7d4f; --ok-soft:#e0efe5;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN",serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#151917; --sheet:#1d2220; --ink:#e7ebe8; --muted:#9aa5a0; --line:#323a37;
+  --accent:#7fb3b8; --accent-soft:#233335; --red:#ee7d6e; --red-soft:#3a2522; --ok:#7cc79a; --ok-soft:#1f3328; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#151917; --sheet:#1d2220; --ink:#e7ebe8; --muted:#9aa5a0; --line:#323a37;
+  --accent:#7fb3b8; --accent-soft:#233335; --red:#ee7d6e; --red-soft:#3a2522; --ok:#7cc79a; --ok-soft:#1f3328; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.75;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 64px}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.clock{font-family:var(--mono);font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.clock.low{color:var(--red)}
+.clock.paused{color:var(--muted);animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.35}}
+#paper.paused{filter:blur(6px);pointer-events:none;user-select:none}
+.pausebox{margin-top:16px;padding:16px;border:1px dashed var(--accent);border-radius:8px;background:var(--accent-soft);text-align:center}
+.prog{flex:1;min-width:100px;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.count{font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+header.top{padding-block:28px 8px}
+.eyebrow{font-size:12px;letter-spacing:.14em;color:var(--muted)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,7vw,40px);line-height:1.25;margin:4px 0 8px;text-wrap:balance}
+.lead{color:var(--muted);margin:0}
+.btn{font:inherit;font-weight:700;border:0;border-radius:6px;padding:10px 18px;cursor:pointer;background:var(--accent);color:var(--sheet);-webkit-appearance:none}
+.btn.big{width:100%;padding:16px;font-size:18px}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn.small{padding:6px 12px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:default}
+.btn:focus-visible,.opt:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.card{margin-block:16px;padding:18px;background:var(--sheet);border:1px solid var(--line);border-radius:8px}
+.card h3{font-family:var(--display);font-size:18px;margin:0 0 8px}
+.start table{border-collapse:collapse;width:100%;font-size:14px}
+.start td{padding:6px 0;border-bottom:1px dashed var(--line)}
+.start td:last-child{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--muted)}
+section.sec{margin-top:36px}
+.sec h2{font-family:var(--display);font-size:22px;margin:0 0 4px;display:flex;gap:10px;align-items:baseline}
+.sec h2 small{font-family:var(--body);font-size:13px;color:var(--muted);font-weight:500}
+.inst{font-size:14px;color:var(--muted);margin:0 0 12px;border-left:3px solid var(--line);padding-left:10px}
+.q{background:var(--sheet);border:1px solid var(--line);border-radius:8px;padding:16px;margin-top:12px}
+.qhead{display:flex;gap:10px}
+.qno{font-family:var(--mono);color:var(--accent);flex:none}
+.qtext{min-width:0}
+.qtext u{text-decoration-thickness:2px;text-underline-offset:4px}
+.star{color:var(--red);font-weight:700}
+.opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+@media (max-width:520px){.opts{grid-template-columns:1fr}}
+.opt{font:inherit;text-align:left;display:flex;gap:10px;align-items:center;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px 10px;cursor:pointer;min-width:0;-webkit-appearance:none}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.bub{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--muted);display:grid;place-items:center;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.opt.picked .bub{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+.opt.right{background:var(--ok-soft);border-color:var(--ok)}
+.opt.right .bub{border-color:var(--ok);color:var(--ok)}
+.opt.wrong{background:var(--red-soft);border-color:var(--red)}
+.opt:disabled{cursor:default;color:var(--ink)}
+.exp{margin-top:12px;padding:12px;border-radius:6px;background:var(--accent-soft);font-size:15px}
+.exp .v{font-weight:700;margin-right:6px}
+.exp .v.ok{color:var(--ok)} .exp .v.ng{color:var(--red)}
+.exp table{border-collapse:collapse;margin-top:8px;font-size:14px;width:100%}
+.exp td,.exp th{border:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
+.tblwrap{overflow-x:auto}
+.passage{background:var(--sheet);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:16px 18px;margin-top:12px;font-family:var(--display);font-size:16.5px;line-height:2}
+.passage .ttl{font-family:var(--body);font-weight:700;font-size:14px;color:var(--muted);margin-bottom:6px}
+.hk{margin-top:10px;font-size:14px;font-family:var(--body);color:var(--muted)}
+.hk summary{cursor:pointer;color:var(--accent)}
+.result{margin-top:28px;padding:20px;background:var(--sheet);border:2px solid var(--ink);border-radius:8px}
+.score{font-family:var(--display);font-size:44px;font-weight:800;line-height:1}
+.score small{font-size:18px;color:var(--muted)}
+.rows{display:grid;gap:6px;margin-top:8px;font-size:14px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px dashed var(--line);padding-bottom:6px}
+.row span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.row.link{cursor:pointer}
+.row.link:hover{color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:13px;padding:2px 10px;border-radius:999px;background:var(--red-soft);color:var(--red)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.note{font-size:13px;color:var(--muted)}
+.err{color:var(--red);font-size:14px;white-space:pre-wrap;word-break:break-word}
+label.f{display:block;font-size:14px;font-weight:700;margin-top:12px}
+select.t,input.t{display:block;width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);margin-top:4px}
+details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.genbox{display:grid;gap:8px}
+.genprog{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.genprog i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
+.badge{font-size:12px;font-family:var(--mono);padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+@media (prefers-reduced-motion:reduce){.prog i,.genprog i{transition:none}.clock.paused{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ============ HOME ============ -->
+<div id="home">
+  <header class="top">
+    <div class="eyebrow" id="homeDate">JLPT N2 ・ 言語知識＋読解</div>
+    <h1>N2 ミニ模試</h1>
+    <p class="lead">ボタンを押すと、新しい30分模試をその場で作ります。間違えた文型・語彙は次のテストに形を変えて再登場します。</p>
+  </header>
+
+  <div class="card genbox" id="genCard">
+    <button class="btn big" id="genBtn">✨ 新しい模試を作る</button>
+    <div id="genStatus" hidden>
+      <div class="genprog"><i id="genBar"></i></div>
+      <p class="note" id="genText" style="margin:6px 0 0">準備中…</p>
+      <p class="note" style="margin:0">作成には1〜2分かかります。この画面を開いたままにしてください。</p>
+      <button class="btn ghost small" id="genCancel" style="justify-self:start;margin-top:6px">中止</button>
+    </div>
+    <p class="err" id="genErr" hidden></p>
+    <p class="note" id="keyHint" style="margin:0" hidden>⚠️ まず下の「設定」で AI サービスと API キーを入れてください。</p>
+  </div>
+
+  <div class="card" id="testsCard" hidden>
+    <h3>テスト一覧</h3>
+    <div class="rows" id="testRows"></div>
+  </div>
+
+  <div class="card" id="weakCard" hidden>
+    <h3>弱点リスト <small class="note">（直近14日）</small></h3>
+    <div class="chips" id="weakChips"></div>
+  </div>
+
+  <div class="card">
+    <details class="set" id="setBox">
+      <summary>⚙️ 設定・バックアップ</summary>
+      <label class="f" for="provIn">AI サービス</label>
+      <select class="t" id="provIn">
+        <option value="deepseek">DeepSeek</option>
+        <option value="qwen">通義千問 Qwen（Alibaba Cloud 国際版）</option>
+        <option value="custom">その他（OpenAI 互換 API）</option>
+      </select>
+      <label class="f" for="keyIn">API キー</label>
+      <input class="t" id="keyIn" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <details style="margin-top:8px"><summary class="note" style="cursor:pointer">詳細設定（URL・モデル）</summary>
+        <label class="f" for="baseIn">API の URL</label>
+        <input class="t" id="baseIn" type="url" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <label class="f" for="modelIn">モデル名</label>
+        <input class="t" id="modelIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </details>
+      <p class="note">キーはこの端末の中だけに保存され、選んだ AI サービス以外には送られません。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn small" id="saveSet">保存</button>
+        <button class="btn ghost small" id="testBtn">🔌 接続テスト</button>
+        <button class="btn ghost small" id="exportBtn">📤 記録を書き出す</button>
+        <label class="btn ghost small" for="importIn" style="display:inline-block">📥 記録を読み込む</label>
+        <input type="file" id="importIn" accept="application/json,.json" hidden>
+      </div>
+      <p class="note" id="setMsg"></p>
+      <p class="note">💡 iPhone では、ホーム画面のアプリを長く使わないと記録が消えることがあります。時々「書き出す」でバックアップしておくと安心です。</p>
+    </details>
+  </div>
+</div>
+
+<!-- ============ TEST ============ -->
+<div id="test" hidden>
+  <div class="bar">
+    <button class="btn ghost small" id="backBtn">← 戻る</button>
+    <span class="clock" id="clock">30:00</span>
+    <div class="prog"><i id="progbar"></i></div>
+    <span class="count" id="count">0 / 26</span>
+    <button class="btn small" id="pauseBtn" hidden>一時停止</button>
+    <button class="btn ghost small" id="finishBtn" hidden>提出する</button>
+    <button class="btn ghost small" id="resetTimerBtn" hidden>⏱ 30分に戻す</button>
+    <button class="btn ghost small" id="retryBtn" hidden>↺ やり直す</button>
+  </div>
+  <header class="top">
+    <div class="eyebrow" id="dateLine"></div>
+    <h1>N2 ミニ模試</h1>
+    <p class="lead">語彙10問・文法12問・読解4問。1問ずつ答えるとすぐ解説が出ます。30分で自動提出です。</p>
+  </header>
+  <div class="card start" id="startBox">
+    <table>
+      <tr><td>問題1 漢字読み</td><td>3問</td></tr>
+      <tr><td>問題2 文脈規定</td><td>4問</td></tr>
+      <tr><td>問題3 言い換え類義</td><td>3問</td></tr>
+      <tr><td>問題4 文法形式の判断</td><td>8問</td></tr>
+      <tr><td>問題5 文の組み立て（★）</td><td>4問</td></tr>
+      <tr><td>問題6 内容理解（短文）</td><td>2篇・4問</td></tr>
+      <tr><td>制限時間</td><td>30:00</td></tr>
+    </table>
+    <div style="margin-top:12px"><button class="btn" id="startBtn">テスト開始</button></div>
+  </div>
+  <div class="pausebox" id="pauseBox" hidden><b>一時停止中</b>　問題は隠れています。<br><button class="btn" id="resumeBtn" style="margin-top:10px">▶ 再開する</button></div>
+  <div id="paper" hidden></div>
+  <div id="result" hidden></div>
+</div>
+
+</div>
+
+<script id="grammar-data" type="application/json">[{"day": 1, "theme": "時間①：之前・之際・剛好・逐漸", "items": ["折（に/には）、折から", "にあたって、にあたり", "に際し（て/ては/ての）", "に先立ち、に先立つ、に先立って", "次第", "か〜ないかのうちに", "かと思うと、かと思ったら", "と思うと、と思ったら", "ないうちに", "つつある"]}, {"day": 2, "theme": "時間②：經過・結果・契機", "items": ["あげく（に/の）", "末（に/の）", "上で（の）", "上は", "以上（は）", "たところが", "きり〜ない", "をきっかけに（して）、をきっかけとして", "を契機として、を契機に（して）", "次第です"]}, {"day": 3, "theme": "原因・理由", "items": ["からこそ", "ことから", "ばかりに", "だけに", "あまり（に）", "につけ（て）、につけても", "のももっともだ、のはもっともだ", "ことだから", "からといって", "だけあって"]}, {"day": 4, "theme": "逆接・對比①", "items": ["一方（で）", "ながら（も）", "つつ（も）", "ものの", "にもかかわらず", "くせして", "どころか", "とは限らない", "というものではない、というものでもない", "だけましだ"]}, {"day": 5, "theme": "不論・撇開・限定", "items": ["はともかく（として）", "はまだしも、ならまだしも", "にかかわらず", "を問わず、は問わず", "もかまわず", "にせよ、にもせよ", "にしろ", "どころではない", "に限って、に限り", "にかけては"]}, {"day": 6, "theme": "條件・依據・對應", "items": ["限り", "限り（は/では）", "ない限り", "ないことには", "てこそ", "ものなら", "次第だ、次第で（は）", "に応じて", "にしたがって、にしたがい", "に沿って、に沿い、に沿う、に沿った"]}, {"day": 7, "theme": "可能・不可能・意志", "items": ["得る", "がたい", "かねる", "かねない", "っこない", "そうにない、そうもない", "まい", "か〜まいか", "抜く", "うではないか、ようではないか"]}, {"day": 8, "theme": "義務・不得不・忍不住", "items": ["ざるを得ない", "ずにはいられない", "ないではいられない", "ねばならない、ねばならぬ", "てはならない", "べきではない", "て（は）いられない、てられない、てらんない", "てばかりはいられない、てばかりもいられない", "どうにか（なんとか、もう少し）〜ないもの（だろう）か", "てまで、までして"]}, {"day": 9, "theme": "斷定・推測・評價", "items": ["に相違ない", "にほかならない", "にすぎない", "かのようだ", "というものだ", "ものがある", "ものだ", "も同然だ", "だけのことはある、だけある", "ほどだ、ほどの"]}, {"day": 10, "theme": "程度・樣態・狀態", "items": ["ほど〜はない", "まま", "まま（に）", "ぶり、っぷり", "げ", "こと（も）なく", "抜きで、抜きに、抜きの、抜きには、抜きでは", "を抜きにして（は/も）、は抜きにして", "やら〜やら", "も〜ば〜も、も〜なら〜も"]}, {"day": 11, "theme": "立場・視點・基準", "items": ["からして", "からすれば、からすると", "から見ると、から見れば、から見て（も）", "にしたら、にすれば、にしてみたら、にしてみれば", "の上では", "上（は/では/の/も）", "をもとに（して/した）", "を〜として、を〜とする、を〜とした", "を頼りに、を頼りとして、を頼りにして", "のもとで、のもとに"]}, {"day": 12, "theme": "關聯・附加・提示", "items": ["にこたえて、にこたえ、にこたえる", "にかかわって、にかかわり、にかかわる", "を巡って（は）、を巡る", "にて、でもって", "だけでなく", "のみならず", "上（に）", "といえば、といったら", "というと、っていうと", "ことに（は）"]}, {"day": 13, "theme": "情感・程度＋總複習", "items": ["かいがある、かいがあって", "がい", "て（で）かなわない", "て（で）しかたがない、て（で）しょうがない、て（で）しようがない", "て当然だ、で当たり前だ", "ばかりだ"]}]</script>
+<script id="vocab-data" type="application/json">["人・家族・人間関係", "身体・健康・病気", "感情①・喜・楽・好", "感情②・悲・怒・不安", "性格・態度", "外見・服装", "食べ物・料理", "飲食・味・食事動作", "家・住居・家具", "家事・日用品", "衣類・洗濯・身だしなみ", "買い物・値段・支払い", "時間①・時刻・曜日・期間", "時間②・頻度・順序・タイミング", "位置・方向・場所", "移動・交通①・乗り物・道", "移動・交通②・旅行・宿泊", "数・量・単位", "天気・気候", "自然・地形・季節", "動物・植物", "環境・資源・災害", "学校・教育", "勉強・試験・成績", "言語・読み書き", "研究・知識・情報", "思考・判断・推測・理解", "仕事・職業", "会社・組織・役職", "ビジネス動作・会議・報告・交渉", "経済・お金・金融", "産業・生産・技術", "政治・法律・行政", "社会・制度・福祉", "国際・文化・宗教", "話す・伝える", "聞く・尋ねる・答える", "約束・依頼・許可", "意見・議論・主張", "人付き合い・マナー・挨拶", "基本動作①・手・持つ・置く", "基本動作②・体・移動", "変化を表す動詞", "増減・程度の変化", "自動詞・他動詞ペア", "始まり・終わり・継続", "授受・やりとり", "準備・片付け・管理", "原因・結果・関係", "目的・手段・方法", "条件・可能性・確率", "評価・価値・比較", "問題・トラブル・解決", "規則・基準・義務", "形容詞①・大小・新旧・良悪", "形容詞②・性質・様子", "副詞①・程度・量", "副詞②・時間・頻度・様態", "接続詞・接続表現", "カタカナ語＋総復習"]</script>
+<script id="seed-test" type="application/json">{"date": "2026-10-07", "limitSec": 1800, "sections": [{"key": "kanji", "title": "問題1", "name": "漢字読み", "inst": "＿＿の言葉の読み方として最もよいものを、1・2・3・4から一つ選びなさい。", "qs": [{"id": "1007-01", "q": "最近、この地域の人口は<u>著しく<\/u>減少している。", "o": ["はなはだしく", "いちじるしく", "めざましく", "おびただしく"], "a": 1, "pt": "漢字読み：著しい", "e": "🔁 10/04の弱点「著しい」！形を変えて連用形「著しく」で再登場です。読みは「いちじるしく」⭕️（硬い書き言葉・ニュース頻出）。<table><tr><th>読み<\/th><th>漢字<\/th><th>意味・使い方<\/th><\/tr><tr><td>いちじるしく ⭕️<\/td><td>著しく<\/td><td>変化がはっきり目立つ（増加・減少・進歩）<\/td><\/tr><tr><td>はなはだしく ❌<\/td><td>甚だしく<\/td><td>程度がひどい（マイナス）<\/td><\/tr><tr><td>めざましく ❌<\/td><td>目覚ましく<\/td><td>驚くほど素晴らしい（プラス）<\/td><\/tr><tr><td>おびただしく ❌<\/td><td>夥しく<\/td><td>数量が非常に多い<\/td><\/tr><\/table>💡 4つとも「〜しい」で終わる硬い形容詞。⚠️「著」は「著者（ちょしゃ）」では「ちょ」と読むので、訓読みとセットで覚えよう！"}, {"id": "1007-02", "q": "彼の話は、前に言っていたことと<u>矛盾<\/u>している。", "o": ["ほこじゅん", "むしゅん", "もじゅん", "むじゅん"], "a": 3, "pt": "漢字読み：矛盾", "e": "「矛」＝む、「盾」＝じゅん → むじゅん⭕️（一般〜書き言葉）。<table><tr><th>読み<\/th><th>判定<\/th><\/tr><tr><td>むじゅん<\/td><td>⭕️<\/td><\/tr><tr><td>ほこじゅん<\/td><td>❌「矛（ほこ）」の訓読みを混ぜた形<\/td><\/tr><tr><td>むしゅん<\/td><td>❌ 濁音を落とした<\/td><\/tr><tr><td>もじゅん<\/td><td>❌「む」と「も」の混同<\/td><\/tr><\/table>💡「矛盾する／矛盾が生じる／自己矛盾」がよく出るセット！"}, {"id": "1007-03", "q": "旅行中、飼っている犬を友人に<u>預けた<\/u>。", "o": ["あずけた", "さずけた", "とどけた", "まかせた"], "a": 0, "pt": "漢字読み：預ける", "e": "「預ける」＝あずける⭕️（物や人を他人に世話・保管してもらう、一般）。<table><tr><th>動詞<\/th><th>向き<\/th><\/tr><tr><td>預ける（あずける）<\/td><td>自分 → 相手にお願いする<\/td><\/tr><tr><td>預かる（あずかる）<\/td><td>相手から受け取って保管する<\/td><\/tr><tr><td>授ける（さずける）❌<\/td><td>目上が下に与える<\/td><\/tr><tr><td>任せる（まかせる）❌<\/td><td>仕事・判断をゆだねる<\/td><\/tr><\/table>⚠️「預ける⇔預かる」の向きは試験の定番！「銀行にお金を預ける」「荷物をお預かりします」。"}]}, {"key": "bunmyaku", "title": "問題2", "name": "文脈規定", "inst": "（　　）に入れるのに最もよいものを、1・2・3・4から一つ選びなさい。", "qs": [{"id": "1007-04", "q": "三年間の努力が（　　）、ついに第一志望の大学に合格した。", "o": ["果たして", "満ちて", "実って", "済んで"], "a": 2, "pt": "語彙：努力が実る", "e": "🔁 10/04の弱点「努力が実る」！＝努力がよい結果になる（一般〜やや書き言葉）⭕️🌾<table><tr><th>語<\/th><th>よく組む名詞<\/th><th>判定<\/th><\/tr><tr><td>実る<\/td><td>努力・苦労・恋が実る<\/td><td>⭕️<\/td><\/tr><tr><td>果たす<\/td><td>（他動詞）約束・役割を果たす<\/td><td>❌「努力が果たして」は助詞が合わない<\/td><\/tr><tr><td>満ちる<\/td><td>自信・希望に満ちる<\/td><td>❌<\/td><\/tr><tr><td>済む<\/td><td>用事・手続きが済む<\/td><td>❌ 終わるだけで成果の意味がない<\/td><\/tr><\/table>💡「努力が実る＝ 努力が報われる」。言い換え問題でも出るのでペアで！"}, {"id": "1007-05", "q": "人手不足のため、その店は（　　）営業時間を短縮することになった。", "o": ["やむを得ず", "思わず", "うっかり", "わざわざ"], "a": 0, "pt": "副詞：やむを得ず", "e": "「やむを得ず」＝しかたなく、他に方法がなくて（硬め・ビジネス／お知らせ文）⭕️<table><tr><th>副詞<\/th><th>ニュアンス<\/th><\/tr><tr><td>やむを得ず ⭕️<\/td><td>事情があってしかたなく（判断）<\/td><\/tr><tr><td>思わず ❌<\/td><td>考える前に体が反応（思わず笑った）<\/td><\/tr><tr><td>うっかり ❌<\/td><td>不注意でミス<\/td><\/tr><tr><td>わざわざ ❌<\/td><td>手間をかけて特別に<\/td><\/tr><\/table>💡 お店の貼り紙「誠に勝手ながら、やむを得ず休業いたします」は定番フレーズ！"}, {"id": "1007-06", "q": "この商品は、二十代の女性を（　　）にして開発された。", "o": ["ポイント", "レベル", "スケジュール", "ターゲット"], "a": 3, "pt": "語彙：ターゲット", "e": "「〜をターゲットにする」＝〜を主な対象にする（ビジネス）⭕️🎯<table><tr><th>カタカナ語<\/th><th>意味<\/th><\/tr><tr><td>ターゲット ⭕️<\/td><td>対象・標的<\/td><\/tr><tr><td>ポイント ❌<\/td><td>要点・点数<\/td><\/tr><tr><td>レベル ❌<\/td><td>程度・水準<\/td><\/tr><tr><td>スケジュール ❌<\/td><td>予定<\/td><\/tr><\/table>💡「若者向け」「ターゲット層」もセットで覚えよう。"}, {"id": "1007-07", "q": "季節の変わり目に風邪を（　　）しまい、会社を休んだ。", "o": ["かかって", "ひいて", "取って", "受けて"], "a": 1, "pt": "コロケーション：風邪をひく", "e": "「風邪を<b>ひく<\/b>」が決まった組み合わせ⭕️（一般・会話）🤧<table><tr><th>表現<\/th><th>判定<\/th><\/tr><tr><td>風邪をひく<\/td><td>⭕️<\/td><\/tr><tr><td>風邪にかかる<\/td><td>△ 意味はOKでも助詞は「に」！「風邪をかかって」❌<\/td><\/tr><tr><td>風邪を取る<\/td><td>❌ 存在しない<\/td><\/tr><tr><td>風邪を受ける<\/td><td>❌ 存在しない<\/td><\/tr><\/table>⚠️ 病気は「インフルエンザにかかる」、風邪だけは「ひく」。助詞まで見るのがコツ！"}]}, {"key": "iikae", "title": "問題3", "name": "言い換え類義", "inst": "＿＿の言葉に意味が最も近いものを、1・2・3・4から一つ選びなさい。", "qs": [{"id": "1007-08", "q": "部長の話はいつも<u>くどい<\/u>。", "o": ["難しくて分かりにくい", "短くてそっけない", "同じことを何度も言ってしつこい", "声が大きくてうるさい"], "a": 2, "pt": "語彙：くどい", "e": "「くどい」＝同じことをくり返して、しつこい（会話・マイナス評価）⭕️😮‍💨<table><tr><th>語<\/th><th>意味<\/th><\/tr><tr><td>くどい ⭕️<\/td><td>くり返しが多くてしつこい<\/td><\/tr><tr><td>ややこしい<\/td><td>複雑で分かりにくい（「難しくて」の選択肢はこちら）<\/td><\/tr><tr><td>そっけない<\/td><td>冷たい・短い（くどいの正反対）<\/td><\/tr><\/table>💡「説明がくどい」「味がくどい（しつこい味）」も同じイメージ！"}, {"id": "1007-09", "q": "<u>あいにく<\/u>、その日はほかの予定が入っております。", "o": ["残念ながら", "幸い", "偶然", "念のため"], "a": 0, "pt": "副詞：あいにく", "e": "「あいにく」＝都合が悪くて残念なことに（丁寧な断り・ビジネス）⭕️<table><tr><th>副詞<\/th><th>気持ち<\/th><\/tr><tr><td>あいにく ⭕️<\/td><td>残念・申し訳ない<\/td><\/tr><tr><td>幸い ❌<\/td><td>ラッキー（正反対）<\/td><\/tr><tr><td>偶然 ❌<\/td><td>たまたま<\/td><\/tr><tr><td>念のため ❌<\/td><td>確認のために<\/td><\/tr><\/table>💡 断りの定番：「あいにく担当者は席を外しております」。"}, {"id": "1007-10", "q": "平日の昼間だったので、映画館は<u>がらがら<\/u>だった。", "o": ["とても混んでいた", "うるさかった", "暗かった", "すいていた"], "a": 3, "pt": "擬態語：がらがら", "e": "「がらがら」＝中に人や物がほとんどない（会話）⭕️<table><tr><th>擬態語<\/th><th>様子<\/th><\/tr><tr><td>がらがら ⭕️<\/td><td>すいている<\/td><\/tr><tr><td>ぎゅうぎゅう ／ ぎっしり<\/td><td>とても混んでいる（正反対）<\/td><\/tr><tr><td>がやがや<\/td><td>人の声でうるさい<\/td><\/tr><\/table>⚠️ 声が「がらがら」＝声がかれている、という別の意味もあります。文脈で判断！"}]}, {"key": "keishiki", "title": "問題4", "name": "文法形式の判断", "inst": "次の文の（　　）に入れるのに最もよいものを、1・2・3・4から一つ選びなさい。", "qs": [{"id": "1007-11", "q": "学生時代は、よく友達と朝まで語り合った（　　）。", "o": ["ものだ", "ことだ", "わけだ", "はずだ"], "a": 0, "pt": "〜たものだ（回想）", "e": "🔁 10/04に実際に選んで間違えた文型！「た形＋ものだ」＝昔はよく〜したなあ（回想・一般〜会話）。「学生時代」「よく」がサイン👀<table><tr><th>形<\/th><th>意味<\/th><th>判定<\/th><\/tr><tr><td>たものだ<\/td><td>なつかしい習慣の回想<\/td><td>⭕️<\/td><\/tr><tr><td>（辞書形）ことだ<\/td><td>〜したほうがいい（忠告）<\/td><td>❌ 過去の思い出に使えない<\/td><\/tr><tr><td>たわけだ<\/td><td>だから〜なのだ（納得・結論）<\/td><td>❌ 理由の文脈がない<\/td><\/tr><tr><td>たはずだ<\/td><td>〜したと確信している<\/td><td>❌「よく」と合わない<\/td><\/tr><\/table>💡 口訣：<b>こと＝アドバイス、もの＝思い出<\/b>。文体は一般的で、作文にも会話にも使えます。"}, {"id": "1007-12", "q": "雨（　　）、大勢のファンが試合を見に来た。", "o": ["に先立って", "に伴って", "にこたえて", "にもかかわらず"], "a": 3, "pt": "〜にもかかわらず", "e": "🔁 10/04の弱点「〜にもかかわらず」！「名詞＋にもかかわらず」＝〜なのに（逆接・硬い書き言葉／ニュース）⭕️☔<table><tr><th>文型<\/th><th>意味<\/th><th>判定<\/th><\/tr><tr><td>にもかかわらず<\/td><td>〜なのに（予想と逆の結果）<\/td><td>⭕️<\/td><\/tr><tr><td>に先立って<\/td><td>〜の前に準備として<\/td><td>❌<\/td><\/tr><tr><td>に伴って<\/td><td>〜と一緒に変化する<\/td><td>❌ 雨でファンが増えるのは変<\/td><\/tr><tr><td>にこたえて<\/td><td>期待・要望に応じて<\/td><td>❌<\/td><\/tr><\/table>💡 会話なら「雨なのに」。後ろに<b>話し手の意志・命令は来ない<\/b>⚠️（×雨にもかかわらず行こう）。"}, {"id": "1007-13", "q": "一度引き受けた（　　）、最後まで責任を持ってやるべきだ。", "o": ["ものの", "からには", "くせに", "とたんに"], "a": 1, "pt": "〜からには", "e": "🔁 10/04の弱点「〜からには」！「普通形＋からには」＝〜のだから当然（後ろに義務・決意）（やや硬い・一般）⭕️💪<table><tr><th>文型<\/th><th>後ろに来るもの<\/th><th>判定<\/th><\/tr><tr><td>からには<\/td><td>べきだ・つもりだ・なければならない<\/td><td>⭕️<\/td><\/tr><tr><td>ものの<\/td><td>逆接（引き受けたものの、できなかった）<\/td><td>❌「べきだ」と合わない<\/td><\/tr><tr><td>くせに<\/td><td>非難（会話・マイナス）<\/td><td>❌ 一般論の主張には不自然<\/td><\/tr><tr><td>とたんに<\/td><td>直後に予想外のこと<\/td><td>❌ 意志文は来ない<\/td><\/tr><\/table>💡 仲間：「〜以上（は）」「〜上は」も同じ意味。上は が一番硬い！"}, {"id": "1007-14", "q": "あの映画のラストシーンは、何度見ても泣か（　　）。", "o": ["ずにはおかない", "ないではすまない", "ずにはいられない", "ずじまいだ"], "a": 2, "pt": "〜ずにはいられない", "e": "🔁 10/04の弱点「〜ずにはいられない」！＝どうしても自然に〜してしまう（話し手の感情・一般〜やや硬い）⭕️😭<table><tr><th>文型<\/th><th>主語・意味<\/th><th>判定<\/th><\/tr><tr><td>ずにはいられない<\/td><td>私の気持ちが我慢できない<\/td><td>⭕️<\/td><\/tr><tr><td>ずにはおかない<\/td><td>作品・出来事が人に必ず〜させる（使役と組む：泣かせずにはおかない）<\/td><td>❌「泣かず」とは組まない<\/td><\/tr><tr><td>ないではすまない<\/td><td>義務的に〜しなければ許されない<\/td><td>❌<\/td><\/tr><tr><td>ずじまいだ<\/td><td>結局〜しないで終わった<\/td><td>❌「何度見ても」と矛盾<\/td><\/tr><\/table>💡 口訣：<b>いられない＝私の心、おかない＝相手を動かす<\/b>。"}, {"id": "1007-15", "q": "彼は医者（　　）、患者の気持ちがあまり分からないようだ。", "o": ["だけあって", "からといって", "ばかりか", "にしては"], "a": 3, "pt": "〜にしては", "e": "「名詞・普通形＋にしては」＝〜から予想されることと違って（一般・会話）⭕️<table><tr><th>文型<\/th><th>評価の向き<\/th><th>判定<\/th><\/tr><tr><td>にしては<\/td><td>予想と<b>違う<\/b><\/td><td>⭕️<\/td><\/tr><tr><td>だけあって<\/td><td>予想<b>どおり<\/b>（さすが）<\/td><td>❌ 後ろはプラス評価が来る<\/td><\/tr><tr><td>からといって<\/td><td>「医者だからといって」と だ が必要<\/td><td>❌ 接続ミス<\/td><\/tr><tr><td>ばかりか<\/td><td>後ろに「〜も」が必要<\/td><td>❌<\/td><\/tr><\/table>💡「〜わりに」も近いけど、にしては は<b>基準となる立場<\/b>（医者・子ども・初心者）に付くことが多い！"}, {"id": "1007-16", "q": "経験の有無（　　）、どなたでも応募できます。", "o": ["にかかわらず", "にもかかわらず", "に限って", "に反して"], "a": 0, "pt": "〜にかかわらず", "e": "「名詞＋にかかわらず」＝〜に関係なく（硬め・募集要項やお知らせ）⭕️<table><tr><th>文型<\/th><th>意味<\/th><th>判定<\/th><\/tr><tr><td>にかかわらず<\/td><td>関係なく（有無・天候・年齢）<\/td><td>⭕️<\/td><\/tr><tr><td>にもかかわらず<\/td><td>〜なのに（逆接）<\/td><td>❌「も」1文字で意味が逆転！<\/td><\/tr><tr><td>に限って<\/td><td>その時だけ（悪いことが）<\/td><td>❌<\/td><\/tr><tr><td>に反して<\/td><td>予想と逆に<\/td><td>❌<\/td><\/tr><\/table>⚠️ <b>有無・大小・賛否<\/b>など対になる語の後ろは にかかわらず。12番の にもかかわらず と並べて覚えよう💡"}, {"id": "1007-17", "q": "このレストランは、予約しないと入れない（　　）人気がある。", "o": ["ばかり", "だけに", "ほど", "きり"], "a": 2, "pt": "〜ほど（程度）", "e": "「普通形＋ほど」＝それくらい程度が高い（一般）⭕️<table><tr><th>形<\/th><th>意味<\/th><th>判定<\/th><\/tr><tr><td>ほど<\/td><td>程度を具体例で表す<\/td><td>⭕️<\/td><\/tr><tr><td>ばかり<\/td><td>〜だけ／〜したばかり<\/td><td>❌<\/td><\/tr><tr><td>だけに<\/td><td>〜だから当然（理由）<\/td><td>❌ 後ろの評価と組まない<\/td><\/tr><tr><td>きり<\/td><td>〜したのを最後に<\/td><td>❌<\/td><\/tr><\/table>💡「涙が出るほど笑った」「死ぬほど疲れた」も同じ型。会話なら「くらい」でもOK。"}, {"id": "1007-18", "q": "工事の開始（　　）、地域の住民への説明会が開かれた。", "o": ["にわたって", "に先立って", "をこめて", "にしたがって"], "a": 1, "pt": "〜に先立って", "e": "「名詞＋に先立って」＝〜する前に（準備として）（硬い書き言葉・ニュース／公式）⭕️<table><tr><th>文型<\/th><th>意味<\/th><th>判定<\/th><\/tr><tr><td>に先立って<\/td><td>本番の前に準備<\/td><td>⭕️<\/td><\/tr><tr><td>にわたって<\/td><td>期間・範囲全体（3日間にわたって）<\/td><td>❌ 期間の語が必要<\/td><\/tr><tr><td>をこめて<\/td><td>気持ちを入れる<\/td><td>❌<\/td><\/tr><tr><td>にしたがって<\/td><td>〜につれて／ルールに従う<\/td><td>❌<\/td><\/tr><\/table>💡「試合に先立ち、開会式が行われた」のように「先立ち」の形も硬い文でよく使われます。"}]}, {"key": "narabe", "title": "問題5", "name": "文の組み立て", "inst": "次の文の　★　に入る最もよいものを、1・2・3・4から一つ選びなさい。", "qs": [{"id": "1007-19", "q": "明日は大事な試験があるので、＿＿ ＿＿ <span class='star'>★<\/span> ＿＿ いかない。", "o": ["わけには", "今日は", "行く", "遊びに"], "a": 2, "pt": "〜わけにはいかない", "e": "正しい順番：今日は → 遊びに → <b>行く<\/b> → わけには（いかない）<br>💡「辞書形＋わけにはいかない」＝事情があってできない（一般〜やや硬い）。「〜わけではない（部分否定）」とは別物⚠️"}, {"id": "1007-20", "q": "最近、物価は ＿＿ ＿＿ <span class='star'>★<\/span> ＿＿、給料は全然増えない。", "o": ["なのに", "一方", "年々", "上がる"], "a": 1, "pt": "〜一方だ", "e": "正しい順番：年々 → 上がる → <b>一方<\/b> → なのに<br>💡「辞書形＋一方だ」＝その方向にどんどん進む（マイナスが多い・一般〜書き言葉）。「年々」「ますます」とよく一緒に来ます。"}, {"id": "1007-21", "q": "アニメを見た ＿＿ ＿＿ <span class='star'>★<\/span> ＿＿、勉強を始めた。", "o": ["興味を持ち", "きっかけに", "ことを", "日本語に"], "a": 3, "pt": "〜をきっかけに", "e": "正しい順番：ことを → きっかけに → <b>日本語に<\/b> → 興味を持ち<br>💡「名詞／〜こと＋をきっかけに」＝それが始まりの原因になって（一般）。動詞の後ろは「こと」で名詞化してから！"}, {"id": "1007-22", "q": "この店は ＿＿ ＿＿ <span class='star'>★<\/span> ＿＿ 人気がある。", "o": ["幅広い", "年代に", "若者", "に限らず"], "a": 0, "pt": "〜に限らず", "e": "正しい順番：若者 → に限らず → <b>幅広い<\/b> → 年代に（人気がある）<br>💡「名詞＋に限らず」＝〜だけでなく（やや硬い・一般）。「AはもとよりB」と似た意味！"}]}, {"key": "dokkai", "title": "問題6", "name": "内容理解（短文）", "inst": "次の文章を読んで、質問に答えなさい。答えは、1・2・3・4から最もよいものを一つ選びなさい。", "passages": [{"ttl": "（1）", "text": "会議で発言が多い人は、積極的だと評価されやすい。確かに、自分の意見をはっきり言うことは大切だ。しかし、私がこれまで一緒に働いてきた中で「この人は頼りになる」と感じたのは、むしろ人の話を最後まで聞ける人だった。そういう人は、相手の意見の中から良い点を見つけ、それを生かした提案をする。だから、話し合いが対立で終わらず、前に進むのである。話す力ばかりが注目されがちだが、聞く力こそ、チームをまとめるのに欠かせない力だと思う。", "hk": "開會嗰陣講得多嘢嘅人，好容易俾人覺得積極。的確，清清楚楚講出自己意見係好重要。不過，我做咗咁多年嘢，真係覺得「呢個人靠得住」嘅，反而係嗰啲肯聽人講完先出聲嘅人。呢類人識得喺人哋意見入面搵到好嘅地方，再用嚟提出新建議。所以傾嘢唔會嗌交收場，而係會行前一步。大家成日淨係留意「講」嘅能力，但我覺得，「聽」嘅能力先至係凝聚團隊唔少得嘅嘢。", "qs": [{"id": "1007-23", "q": "筆者が「頼りになる」と感じたのは、どんな人か。", "o": ["会議でたくさん発言する人", "人の話を最後まで聞ける人", "自分の意見をはっきり言う人", "相手の意見にいつも賛成する人"], "a": 1, "pt": "読解：むしろ（筆者の評価）", "e": "「しかし…<b>むしろ<\/b>人の話を最後まで聞ける人だった」が答え⭕️<br>💡「むしろ」＝前の一般論より、こっちの方が…という筆者の本音サイン！<table><tr><th>選択肢<\/th><th>判定<\/th><\/tr><tr><td>たくさん発言する人<\/td><td>❌ 世間の評価（一般論）。筆者の考えではない<\/td><\/tr><tr><td>意見をはっきり言う人<\/td><td>❌「確かに〜大切だ」と一度認めただけ（譲歩）<\/td><\/tr><tr><td>いつも賛成する人<\/td><td>❌ 本文は「良い点を見つけて生かす」。賛成するとは言っていない<\/td><\/tr><\/table>"}, {"id": "1007-24", "q": "筆者の考えに合うものはどれか。", "o": ["自分の意見を言うことは、あまり大切ではない", "会議では、できるだけ発言しないほうがいい", "話す力と聞く力は、同じくらい注目されている", "聞く力は、チームをまとめるために重要な力だ"], "a": 3, "pt": "読解：〜こそ（筆者の主張）", "e": "最後の文「聞く力<b>こそ<\/b>、チームをまとめるのに欠かせない力だと思う」⭕️<table><tr><th>選択肢<\/th><th>判定<\/th><\/tr><tr><td>意見を言うことは大切ではない<\/td><td>❌「確かに…大切だ」と認めている。言い過ぎ<\/td><\/tr><tr><td>発言しないほうがいい<\/td><td>❌ 本文にない<\/td><\/tr><tr><td>同じくらい注目<\/td><td>❌「話す力ばかりが注目されがち」と逆<\/td><\/tr><\/table>💡 主張の型：<b>確かにA。しかしB。〜こそC<\/b>。「確かに」の後ろは譲歩、答えは「しかし」以降！"}]}, {"ttl": "（2）", "text": "件名：オンライン講座　受講方法変更のお知らせ<br>受講生の皆様<br>11月から、オンライン講座の受講方法が変わります。これまでは毎週火曜日19時からのライブ授業にご参加いただいていましたが、11月以降は、授業の録画を毎週水曜日の正午に公開し、公開から2週間いつでも視聴できるようにいたします。ライブ授業は月に1回、第1火曜日のみ行います。<br>なお、課題の提出期限は、これまでどおり録画公開日の翌週の月曜日です。録画を視聴するには新しいアプリへの登録が必要ですので、10月31日までに、お送りした招待メールから登録を済ませてください。<br>ことのは日本語スクール　事務局", "hk": "主旨：網上課程上堂方式更改通知<br>各位學員：<br>由11月開始，網上課程嘅上堂方式會有改變。以前係每個禮拜二夜晚7點參加直播堂，11月之後，每個禮拜三中午12點會放上課堂錄影，放上去之後兩個禮拜內幾時睇都得。直播堂就改為一個月一次，只喺每個月第一個禮拜二上。<br>另外，功課嘅交收期限同以前一樣，係錄影放上去嗰日嘅下個禮拜一。要睇錄影就要登記新嘅App，請喺10月31號或之前，用我哋寄畀你嘅邀請電郵完成登記。<br>言葉日本語學校　事務處", "qs": [{"id": "1007-25", "q": "11月以降、ライブ授業が行われるのはいつか。", "o": ["毎週火曜日の19時", "毎週水曜日の正午", "毎月第1火曜日", "ライブ授業はなくなる"], "a": 2, "pt": "読解：これまで／以降（新旧の区別）", "e": "「ライブ授業は月に1回、<b>第1火曜日のみ<\/b>行います」⭕️<table><tr><th>選択肢<\/th><th>落とし穴<\/th><\/tr><tr><td>毎週火曜日19時<\/td><td>❌「これまでは」＝古いルール<\/td><\/tr><tr><td>毎週水曜日の正午<\/td><td>❌ それは録画の公開時間<\/td><\/tr><tr><td>なくなる<\/td><td>❌ 月1回は残る<\/td><\/tr><\/table>💡 お知らせ文は「これまでは／〜以降は」で新旧を分けて読もう！"}, {"id": "1007-26", "q": "11月11日（水）に公開された録画の課題は、いつまでに提出しなければならないか。", "o": ["11月16日（月）", "11月18日（水）", "11月25日（水）", "11月9日（月）"], "a": 0, "pt": "読解：期限の計算（翌週）", "e": "「録画公開日の<b>翌週の月曜日<\/b>」→ 11日（水）の次の週の月曜日＝16日⭕️<table><tr><th>選択肢<\/th><th>落とし穴<\/th><\/tr><tr><td>11月18日<\/td><td>❌ 公開から1週間後と勘違い<\/td><\/tr><tr><td>11月25日<\/td><td>❌ 視聴できる最終日（公開から2週間）<\/td><\/tr><tr><td>11月9日<\/td><td>❌ 公開日より前！同じ週の月曜日<\/td><\/tr><\/table>💡 情報検索は「何の期限か」を区別するのがコツ。視聴期限と提出期限は別物⚠️"}]}]}]}</script>
+
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const GRAMMAR = JSON.parse($('grammar-data').textContent);
+const VOCAB = JSON.parse($('vocab-data').textContent);
+const K = {cfg:'n2a.cfg', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.'};
+
+/* ---------- storage helpers ---------- */
+const mem = {};
+function lsGet(k, d){ try{ const v = localStorage.getItem(k); return v===null ? (k in mem ? mem[k] : d) : JSON.parse(v); }catch(e){ return k in mem ? mem[k] : d; } }
+function lsSet(k, v){ mem[k]=v; try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function lsDel(k){ delete mem[k]; try{ localStorage.removeItem(k); }catch(e){} }
+
+function hkDate(d){
+  const p = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong',year:'numeric',month:'2-digit',day:'2-digit'}).format(d||new Date());
+  return p; // YYYY-MM-DD
+}
+function getTests(){ return lsGet(K.tests, []); }
+function getResults(){ return lsGet(K.results, []); }
+
+/* seed: first launch gets the last daily test so there is something to try */
+(function seed(){
+  if(lsGet('n2a.seeded', false)) return;
+  try{
+    const s = JSON.parse($('seed-test').textContent);
+    if(s && s.sections){
+      const tests = getTests();
+      if(!tests.some(t=>t.id===s.date+'-0')) tests.push({id:s.date+'-0', date:s.date, createdAt:Date.now(), data:s, label:'（前のアプリから）'});
+      lsSet(K.tests, tests);
+    }
+  }catch(e){}
+  lsSet('n2a.seeded', true);
+})();
+
+/* ---------- HOME ---------- */
+function weakPoints(days){
+  const since = Date.now() - days*864e5;
+  const cnt = {};
+  getResults().filter(r=>r.at>=since).forEach(r=>(r.wrong||[]).forEach(w=>{
+    const c = cnt[w.point] || (cnt[w.point]={n:0,picked:0,sec:w.sec});
+    c.n++; if(w.picked!==null && w.picked!==undefined) c.picked++;
+  }));
+  return Object.entries(cnt).map(([point,c])=>({point,...c}))
+    .sort((a,b)=> (b.picked-a.picked) || (b.n-a.n));
+}
+function renderHome(){
+  $('homeDate').textContent = 'JLPT N2 ・ ' + hkDate().replace(/-/g,'.') + ' ・ 言語知識＋読解';
+  const cfg = getCfg();
+  fillCfgForm(cfg);
+  $('keyHint').hidden = !!cfg.key;
+  if(!cfg.key) $('setBox').open = true;
+
+  const tests = getTests().slice().sort((a,b)=>b.createdAt-a.createdAt);
+  const results = getResults();
+  $('testsCard').hidden = !tests.length;
+  $('testRows').innerHTML = '';
+  tests.forEach((t,i)=>{
+    const r = results.filter(x=>x.testId===t.id).sort((a,b)=>b.at-a.at)[0];
+    const st = lsGet(K.st+t.id, null);
+    const status = r ? (r.score+' / '+r.total) : (st && st.started ? '途中' : '未受験');
+    const div = document.createElement('div'); div.className='row link';
+    const sameDay = tests.filter(x=>x.date===t.date).length>1;
+    div.innerHTML = '<span>'+t.date.replace(/-/g,'.')+(sameDay?' <span class="badge">#'+(tests.filter(x=>x.date===t.date).reverse().indexOf(t)+1)+'</span>':'')+(t.label?' <span class="note">'+t.label+'</span>':'')+(i===0&&!r?' <span class="badge">NEW</span>':'')+'</span><span>'+status+' ›</span>';
+    div.addEventListener('click',()=>openTest(t.id));
+    $('testRows').appendChild(div);
+  });
+  const weak = weakPoints(14).slice(0,16);
+  $('weakCard').hidden = !results.length;
+  $('weakChips').innerHTML = weak.length ? weak.map(w=>'<span class="chip">'+esc(w.point)+(w.n>1?' ×'+w.n:'')+'</span>').join('') : '<span class="chip ok">弱点なし 🎉</span>';
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+$('saveSet').addEventListener('click',()=>{
+  const c = readCfgForm();
+  if(!c.base || !c.model){ $('setMsg').textContent = 'URL とモデル名を入れてください（詳細設定）'; return; }
+  lsSet(K.cfg, c);
+  $('setMsg').textContent = '✅ 保存しました';
+  renderHome();
+});
+$('exportBtn').addEventListener('click',()=>{
+  const data = {v:1, exportedAt:new Date().toISOString(), tests:getTests(), results:getResults(), states:{}};
+  data.tests.forEach(t=>{ const s = lsGet(K.st+t.id,null); if(s) data.states[t.id]=s; });
+  const blob = new Blob([JSON.stringify(data)],{type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'N2模試_backup_'+hkDate()+'.json'; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  $('setMsg').textContent = '📤 書き出しました（APIキーは含まれません）';
+});
+$('importIn').addEventListener('change', async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const d = JSON.parse(await f.text());
+    const tests = getTests(); const ids = new Set(tests.map(t=>t.id));
+    (d.tests||[]).forEach(t=>{ if(!ids.has(t.id)) tests.push(t); });
+    lsSet(K.tests, tests);
+    const res = getResults(); const rk = new Set(res.map(r=>r.testId+'@'+r.at));
+    (d.results||[]).forEach(r=>{ if(!rk.has(r.testId+'@'+r.at)) res.push(r); });
+    lsSet(K.results, res);
+    Object.entries(d.states||{}).forEach(([id,s])=>{ if(!lsGet(K.st+id,null)) lsSet(K.st+id,s); });
+    $('setMsg').textContent = '📥 読み込みました';
+    renderHome();
+  }catch(err){ $('setMsg').textContent = '読み込めませんでした：'+err.message; }
+  e.target.value='';
+});
+
+/* ---------- GENERATION ---------- */
+const PROVIDERS = {
+  deepseek:{label:'DeepSeek', base:'https://api.deepseek.com', model:'deepseek-chat', keyPh:'sk-...'},
+  qwen:{label:'通義千問 Qwen（Alibaba Cloud 国際版）', base:'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model:'qwen-plus', keyPh:'sk-...'},
+  custom:{label:'その他（OpenAI 互換 API）', base:'', model:'', keyPh:''}
+};
+const SEC_META = {
+  kanji:   {title:'問題1', name:'漢字読み', inst:'＿＿の言葉の読み方として最もよいものを、1・2・3・4から一つ選びなさい。'},
+  bunmyaku:{title:'問題2', name:'文脈規定', inst:'（　　）に入れるのに最もよいものを、1・2・3・4から一つ選びなさい。'},
+  iikae:   {title:'問題3', name:'言い換え類義', inst:'＿＿の言葉に意味が最も近いものを、1・2・3・4から一つ選びなさい。'},
+  keishiki:{title:'問題4', name:'文法形式の判断', inst:'次の文の（　　）に入れるのに最もよいものを、1・2・3・4から一つ選びなさい。'},
+  narabe:  {title:'問題5', name:'文の組み立て', inst:'次の文の　★　に入る最もよいものを、1・2・3・4から一つ選びなさい。'},
+  dokkai:  {title:'問題6', name:'内容理解（短文）', inst:'次の文章を読んで、質問に答えなさい。答えは、1・2・3・4から最もよいものを一つ選びなさい。'}
+};
+function metaOf(k){ const m = SEC_META[k]; return {title:m.title, name:m.name, inst:m.inst}; }
+
+function getCfg(){
+  const c = lsGet(K.cfg, null) || {provider:'deepseek', base:PROVIDERS.deepseek.base, model:PROVIDERS.deepseek.model, key:''};
+  return c;
+}
+function readCfgForm(){
+  return {provider:$('provIn').value, base:$('baseIn').value.trim().replace(/\/+$/,''), model:$('modelIn').value.trim(), key:$('keyIn').value.trim()};
+}
+function fillCfgForm(c){
+  $('provIn').value = c.provider; $('baseIn').value = c.base; $('modelIn').value = c.model; $('keyIn').value = c.key;
+  $('keyIn').placeholder = (PROVIDERS[c.provider]||{}).keyPh || '';
+}
+$('provIn').addEventListener('change', ()=>{
+  const p = PROVIDERS[$('provIn').value];
+  if($('provIn').value!=='custom'){ $('baseIn').value = p.base; $('modelIn').value = p.model; }
+  $('keyIn').placeholder = p.keyPh;
+});
+
+const Q_SHAPE = '{"q":"問題文","o":["選択肢A","選択肢B","選択肢C","選択肢D"],"a":0,"pt":"文型・語彙名","e":"解説HTML"}';
+const COMMON_RULES =
+`あなたは廣東話母語の学習者を JLPT N2 合格へ導く、親切で生き生きとした日本語教師です。本番形式の模試問題を作り、指定された JSON だけを出力します。
+
+【解説 e のルール】
+- 100% 日本語。親切・生き生きとした先生口調、少しユーモア、絵文字OK。⭕️❌△⚠️💡で正誤と要点を示す。
+- 必ず小さな HTML の <table>（<tr><th>…</th></tr><tr><td>…</td></tr>）で、正解と紛らわしい選択肢の違い（意味・接続・ニュアンス）を比較する。
+- 選択肢を番号（1番、2の…）で呼ばない。必ず語句そのもので呼ぶ（選択肢はアプリが並べ替えます）。
+- 弱点の再出題問題は、解説の最初に「🔁 弱点リベンジ！」と書く。
+- 1問の解説は簡潔に（120〜220字＋表）。
+
+【全体ルール】
+- ふりがな・読みがなを付けない（漢字読み問題の選択肢だけは例外）。
+- 正解は必ず1つに決まること。出力前に全問を自分で解き直し、他の選択肢でも成立する問題は作り直す。
+- a は正解選択肢の index（0〜3）。正解の位置は偏らせない。
+- 問題文の空欄は（　　）、下線は <u>…</u> を使う。
+- 自然で現代的な日本語。
+- 出力は JSON オブジェクトのみ（説明文やコードブロック記号は書かない）。各問題の形：${Q_SHAPE}`;
+
+function pick(arr, n){ const a = arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a.slice(0,n); }
+
+function buildParts(){
+  const today = hkDate();
+  const weak = weakPoints(7);
+  const recentTests = getTests().slice().sort((a,b)=>b.createdAt-a.createdAt).slice(0,4);
+  const recent = recentTests.flatMap(t=>flatQs(t.data));
+  const recentBy = secs => [...new Set(recent.filter(q=>secs.includes(q.sec)).map(q=>q.pt))].slice(0,40);
+  const weakBy = (secs,n) => weak.filter(w=>secs.includes(w.sec)).slice(0,n);
+  const focusDays = pick(GRAMMAR, 4).sort((a,b)=>a.day-b.day);
+  const vocabThemes = pick(VOCAB, 4);
+  const weakText = (list)=> list.length ? `\n【弱点の再出題】学習者が直近7日で間違えた項目です。次の項目を、文や形を変えて混ぜてください（同じ文の丸写しは禁止）。実際に選んで間違えたものを優先：\n${list.map(w=>`- ${w.point}${w.picked?'（選択ミス）':'（時間切れ）'}`).join('\n')}\n` : '';
+  const avoidText = (list)=> list.length ? `\n【重複を避ける】最近出た項目（弱点の再出題以外は避ける）：${list.join('、')}\n` : '';
+
+  const vocabW = weakBy(['kanji','bunmyaku','iikae'],3);
+  const gramW = weakBy(['keishiki','narabe'],3);
+  const readW = weakBy(['dokkai'],2);
+
+  const parts = [
+    {key:'vocab', label:'語彙', secs:['kanji','bunmyaku','iikae'], counts:{kanji:3,bunmyaku:4,iikae:3},
+     user:`今日の日付：${today}
+語彙パート（10問）を作ってください。
+- kanji 漢字読み 3問：下線語 <u>…</u> の読み。選択肢は紛らわしいひらがな4つ。
+- bunmyaku 文脈規定 4問：（　　）に入る語彙（名詞・動詞・副詞・カタカナ語・コロケーション）。
+- iikae 言い換え類義 3問：下線語 <u>…</u> に最も近い意味の語句。
+語彙は主に次のテーマから、N2レベル中心で：${vocabThemes.join('／')}
+${weakText(vocabW)}${avoidText(recentBy(['kanji','bunmyaku','iikae']))}
+出力 JSON の形：{"kanji":[問題×3],"bunmyaku":[問題×4],"iikae":[問題×3]}`},
+    {key:'grammar', label:'文法', secs:['keishiki','narabe'], counts:{keishiki:8,narabe:4},
+     user:`今日の日付：${today}
+文法パート（12問）を作ってください。
+- keishiki 文法形式の判断 8問：（　　）に入る文型。解説では接続と文体レベル（硬い書き言葉／一般／会話／ビジネス）に必ず触れる。
+- narabe 文の組み立て 4問：問題文は「…＿＿ ＿＿ <span class='star'>★</span> ＿＿…」の形で、★は必ず3番目の空欄。o は4つの語句をバラバラの順で並べ、a は★に入る語句の index。解説の最初に「正しい順番：A → B → <b>C</b> → D」を書き、文型の接続・文体にも触れる。
+今日はこの学習済み文型から中心に出題（他のN2文型を1〜2問混ぜてもよい）：
+${focusDays.map(d=>`DAY${String(d.day).padStart(2,'0')} ${d.theme}：${d.items.join('、')}`).join('\n')}
+${weakText(gramW)}${avoidText(recentBy(['keishiki','narabe']))}
+出力 JSON の形：{"keishiki":[問題×8],"narabe":[問題×4]}`},
+    {key:'dokkai', label:'読解', secs:['dokkai'], counts:{dokkai:2},
+     user:`今日の日付：${today}
+読解パート（短文2篇×各2問）を作ってください。
+- 1篇目：オリジナルの意見文（200〜300字）。設問は「筆者の考え」「下線部・キーワードの意味」など。
+- 2篇目：オリジナルのお知らせ・メール等の情報検索型（日付・期限・条件・例外「ただし」「なお」を読み取る）。日付計算を含む場合は曜日と日付が正しいか必ず確認。
+- text の改行は <br>。
+- hk は本文の【廣東話口語】の自然な意訳（嘅、咗、唔、喺、啲 などを使う香港の話し言葉。普通話の書き言葉にしない）。
+${weakText(readW)}
+出力 JSON の形：{"dokkai":[{"ttl":"（1）","text":"本文","hk":"廣東話意訳","qs":[問題×2]},{"ttl":"（2）","text":"本文","hk":"廣東話意訳","qs":[問題×2]}]}`}
+  ];
+  return {today, parts};
+}
+
+function parseLooseJSON(s){
+  s = s.trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
+  const i = s.indexOf('{'), j = s.lastIndexOf('}');
+  if(i<0||j<0) throw new Error('JSON が見つかりません');
+  return JSON.parse(s.slice(i,j+1));
+}
+function checkQ(q){ return q && typeof q.q==='string' && Array.isArray(q.o) && q.o.length===4 && Number.isInteger(+q.a) && +q.a>=0 && +q.a<=3; }
+function validatePart(part, raw){
+  if(part.key==='dokkai'){
+    if(!Array.isArray(raw.dokkai) || !raw.dokkai.length) throw new Error('読解が空');
+    raw.dokkai.forEach(p=>{ if(!p.text || !Array.isArray(p.qs) || !p.qs.length || !p.qs.every(checkQ)) throw new Error('読解の形式エラー'); });
+  } else {
+    part.secs.forEach(k=>{ if(!Array.isArray(raw[k]) || !raw[k].length || !raw[k].every(checkQ)) throw new Error(SEC_META[k].name+' の形式エラー'); });
+  }
+  return raw;
+}
+
+async function callChat(cfg, system, user, onChunk, signal, maxTokens){
+  let res;
+  try{
+    res = await fetch(cfg.base+'/chat/completions', {
+      method:'POST', signal,
+      headers:{'content-type':'application/json','authorization':'Bearer '+cfg.key},
+      body: JSON.stringify({model:cfg.model, stream:true, temperature:0.8, max_tokens:maxTokens||8000,
+        response_format:{type:'json_object'},
+        messages:[{role:'system',content:system},{role:'user',content:user}]})
+    });
+  }catch(e){
+    if(e.name==='AbortError') throw e;
+    throw new Error('サーバーに接続できませんでした。ネットワークを確認してください。それでもダメなら、このサービスはブラウザから直接使えない可能性があります（設定で別のサービスを試してください）。');
+  }
+  if(!res.ok){
+    let msg = res.status+' '+res.statusText;
+    try{ const j = await res.json(); msg = (j.error && (j.error.message||j.error.code)) || j.message || msg; }catch(e){}
+    throw new Error(apiHint(res.status, msg));
+  }
+  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf='', out='', finish=null;
+  for(;;){
+    const {done, value} = await reader.read(); if(done) break;
+    buf += dec.decode(value,{stream:true});
+    let i;
+    while((i = buf.indexOf('\n')) >= 0){
+      const line = buf.slice(0,i).trim(); buf = buf.slice(i+1);
+      if(!line.startsWith('data:')) continue;
+      const d = line.slice(5).trim(); if(d==='[DONE]') continue;
+      let ev; try{ ev = JSON.parse(d); }catch(e){ continue; }
+      if(ev.error) throw new Error(ev.error.message||'API error');
+      const ch = ev.choices && ev.choices[0]; if(!ch) continue;
+      const t = ch.delta && ch.delta.content; if(t){ out += t; onChunk && onChunk(t.length); }
+      if(ch.finish_reason) finish = ch.finish_reason;
+    }
+  }
+  if(finish==='length') throw new Error('出力が長すぎて途中で切れました');
+  return out;
+}
+function apiHint(status, msg){
+  if(status===401 || status===403) return 'API キーが正しくないか、権限がありません。設定を確認してください。\n('+msg+')';
+  if(status===402 || /balance|insufficient|quota|arrear/i.test(msg)) return '残高が足りません。サービスのサイトでチャージしてください。\n('+msg+')';
+  if(status===404 || /model/i.test(msg)) return 'モデル名か URL が正しくないようです。設定を確認してください。\n('+msg+')';
+  if(status===429) return '利用が混み合っているか上限です。少し待ってからもう一度。\n('+msg+')';
+  if(status>=500) return 'サーバーが混雑しています。少し待ってからもう一度。\n('+msg+')';
+  return msg;
+}
+
+let genAbort = null;
+async function generate(){
+  const cfg = getCfg();
+  if(!cfg.key || !cfg.base || !cfg.model){ $('setBox').open = true; $('keyHint').hidden=false; $('keyIn').focus(); return; }
+  const {today, parts} = buildParts();
+  $('genErr').hidden = true; $('genBtn').disabled = true; $('genStatus').hidden = false;
+  $('genBar').style.width='2%';
+  let wake = null; try{ wake = await navigator.wakeLock.request('screen'); }catch(e){}
+  genAbort = new AbortController();
+  const t0 = Date.now(); let chars = 0; const state = {};
+  parts.forEach(p=>state[p.key]='作成中');
+  const tick = setInterval(()=>{
+    $('genBar').style.width = Math.min(97, 3 + chars/16000*94)+'%';
+    $('genText').textContent = parts.map(p=>p.label+'：'+state[p.key]).join('　') + '　（'+Math.round((Date.now()-t0)/1000)+'秒）';
+  }, 500);
+  try{
+    const results = await Promise.all(parts.map(async part=>{
+      let lastErr;
+      for(let attempt=0; attempt<2; attempt++){
+        try{
+          if(attempt) state[part.key]='やり直し中';
+          const txt = await callChat(cfg, COMMON_RULES, part.user, n=>{chars+=n;}, genAbort.signal);
+          const raw = validatePart(part, parseLooseJSON(txt));
+          state[part.key]='✅';
+          return raw;
+        }catch(e){
+          if(e.name==='AbortError' || /キー|残高|接続できません|モデル名/.test(e.message)) throw e;
+          lastErr = e;
+        }
+      }
+      state[part.key]='❌';
+      throw new Error(part.label+'パートを作れませんでした（'+lastErr.message+'）。もう一度お試しください。');
+    }));
+    const merged = Object.assign({}, ...results);
+    const data = assemble(merged, today);
+    const tests = getTests();
+    const id = today+'-'+Date.now().toString(36);
+    tests.push({id, date:today, createdAt:Date.now(), data, model:cfg.model});
+    tests.sort((a,b)=>b.createdAt-a.createdAt);
+    tests.slice(40).forEach(t=>lsDel(K.st+t.id));
+    lsSet(K.tests, tests.slice(0,40));
+    $('genBar').style.width='100%';
+    $('genText').textContent = '完成！（'+Math.round((Date.now()-t0)/1000)+'秒）';
+    setTimeout(()=>{ $('genStatus').hidden = true; openTest(id); }, 600);
+  }catch(err){
+    genAbort && genAbort.abort();
+    $('genStatus').hidden = true;
+    if(err.name!=='AbortError' || !$('genErr').hidden){ $('genErr').textContent = '❌ '+err.message; $('genErr').hidden = false; }
+  }finally{
+    clearInterval(tick); $('genBtn').disabled = false; genAbort = null;
+    try{ wake && wake.release(); }catch(e){}
+  }
+}
+function assemble(raw, today){
+  const mmdd = today.slice(5).replace('-','');
+  let n = 0;
+  const fixQ = q=>{
+    n++;
+    const a = +q.a; const perm = pick([0,1,2,3],4);
+    return {id: mmdd+'-'+String(n).padStart(2,'0'), q:q.q, o:perm.map(i=>q.o[i]), a:perm.indexOf(a), pt:q.pt||'', e:q.e||''};
+  };
+  const sections = [];
+  ['kanji','bunmyaku','iikae','keishiki','narabe'].forEach(k=>{
+    sections.push(Object.assign({key:k}, metaOf(k), {qs: raw[k].map(fixQ)}));
+  });
+  sections.push(Object.assign({key:'dokkai'}, metaOf('dokkai'), {passages: raw.dokkai.map((p,i)=>({ttl:p.ttl||('（'+(i+1)+'）'), text:p.text, hk:p.hk||'', qs:p.qs.map(fixQ)}))}));
+  return {date:today, limitSec:1800, sections};
+}
+
+$('genBtn').addEventListener('click', generate);
+$('genCancel').addEventListener('click', ()=>{ if(genAbort) genAbort.abort(); });
+$('testBtn').addEventListener('click', async ()=>{
+  const cfg = readCfgForm();
+  if(!cfg.key){ $('setMsg').textContent = 'API キーを入れてください'; return; }
+  $('setMsg').textContent = '接続テスト中…';
+  try{
+    const t = await callChat(cfg, 'You reply in JSON.', 'Reply with this JSON only: {"ok":true}', null, undefined, 20);
+    $('setMsg').textContent = '✅ 接続OK！このまま「保存」して模試を作れます。';
+  }catch(e){ $('setMsg').textContent = '❌ '+e.message; }
+});
+
+/* ---------- TEST RUNNER ---------- */
+function flatQs(T){
+  const flat = [];
+  (T.sections||[]).forEach(s=>{
+    if(s.qs) s.qs.forEach(q=>flat.push(Object.assign({sec:s.key,secName:s.name},q)));
+    if(s.passages) s.passages.forEach(p=>p.qs.forEach(q=>flat.push(Object.assign({sec:s.key,secName:s.name},q))));
+  });
+  return flat;
+}
+
+let cur = null; // {rec, T, flat, state, timer}
+const circ = ['1','2','3','4'];
+
+function openTest(id){
+  const rec = getTests().find(t=>t.id===id); if(!rec) return;
+  if(cur && cur.timer) clearInterval(cur.timer);
+  const T = rec.data;
+  cur = {rec, T, flat: flatQs(T), state: lsGet(K.st+id, null) || {started:null, answers:{}, submitted:false}, timer:null};
+  $('home').hidden = true; $('test').hidden = false; window.scrollTo({top:0});
+  $('dateLine').textContent = 'JLPT N2 ・ ' + T.date.replace(/-/g,'.') + ' ・ 言語知識＋読解';
+  $('count').textContent = '0 / '+cur.flat.length;
+  $('progbar').style.width = '0';
+  $('clock').textContent = fmt(T.limitSec); $('clock').classList.remove('low','paused');
+  $('startBox').hidden = false; $('paper').hidden = true; $('result').hidden = true; $('pauseBox').hidden = true;
+  ['pauseBtn','finishBtn','resetTimerBtn','retryBtn'].forEach(b=>$(b).hidden=true);
+  if(cur.state.started) begin();
+}
+function save(){ lsSet(K.st+cur.rec.id, cur.state); }
+function fmt(s){ return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+
+function qCard(q, n){
+  const d = document.createElement('div'); d.className='q'; d.id='q-'+q.id;
+  d.innerHTML = '<div class="qhead"><span class="qno">'+n+'</span><div class="qtext">'+q.q+'</div></div><div class="opts"></div><div class="exp" hidden></div>';
+  const box = d.querySelector('.opts');
+  q.o.forEach((t,i)=>{
+    const b = document.createElement('button'); b.className='opt'; b.type='button';
+    b.innerHTML = '<span class="bub">'+circ[i]+'</span><span>'+t+'</span>';
+    b.addEventListener('click',()=>answer(q,i));
+    box.appendChild(b);
+  });
+  return d;
+}
+function render(){
+  const p = $('paper'); p.innerHTML=''; let n=1;
+  cur.T.sections.forEach(s=>{
+    const sec = document.createElement('section'); sec.className='sec';
+    sec.innerHTML = '<h2>'+s.title+' <small>'+s.name+'</small></h2><p class="inst">'+s.inst+'</p>';
+    if(s.qs) s.qs.forEach(q=>sec.appendChild(qCard(q,n++)));
+    if(s.passages) s.passages.forEach(ps=>{
+      const pd = document.createElement('div'); pd.className='passage';
+      pd.innerHTML = '<div class="ttl">'+ps.ttl+'</div><div>'+ps.text+'</div><details class="hk"><summary>🇭🇰 廣東話意訳（解いた後に）</summary>'+ps.hk+'</details>';
+      sec.appendChild(pd);
+      ps.qs.forEach(q=>sec.appendChild(qCard(q,n++)));
+    });
+    p.appendChild(sec);
+  });
+  cur.flat.forEach(q=>{ if(cur.state.answers[q.id]!==undefined || cur.state.submitted) paint(q); });
+  updateCount();
+}
+function paint(q){
+  const pick = cur.state.answers[q.id];
+  const card = $('q-'+q.id); if(!card) return;
+  card.querySelectorAll('.opt').forEach((b,i)=>{
+    b.disabled = true;
+    if(i===q.a) b.classList.add('right');
+    if(i===pick){ b.classList.add('picked'); if(i!==q.a) b.classList.add('wrong'); }
+  });
+  const ex = card.querySelector('.exp');
+  const v = pick===undefined ? '<span class="v ng">未回答</span>' : pick===q.a ? '<span class="v ok">⭕️ 正解！</span>' : '<span class="v ng">❌ 残念</span>';
+  ex.innerHTML = v + '正解は '+(q.a+1)+'「'+q.o[q.a]+'」<div class="tblwrap">'+q.e+'</div>';
+  ex.hidden = false;
+}
+function answer(q,i){
+  const st = cur.state;
+  if(st.submitted || st.pausedAt || st.answers[q.id]!==undefined) return;
+  st.answers[q.id]=i; save(); paint(q); updateCount();
+  if(Object.keys(st.answers).length===cur.flat.length) finish();
+}
+function updateCount(){
+  const n = Object.keys(cur.state.answers).length;
+  $('count').textContent = n+' / '+cur.flat.length;
+  $('progbar').style.width = (n/cur.flat.length*100)+'%';
+}
+function elapsedMs(at){ const st=cur.state; const now = at || (st.pausedAt || Date.now()); return now - st.started - (st.pausedTotal||0); }
+function applyPause(){
+  const p = !!cur.state.pausedAt && !cur.state.submitted;
+  $('pauseBtn').textContent = p ? '再開' : '一時停止';
+  $('clock').classList.toggle('paused', p);
+  $('paper').classList.toggle('paused', p);
+  $('pauseBox').hidden = !p;
+}
+function togglePause(){
+  const st = cur.state; if(st.submitted) return;
+  if(st.pausedAt){ st.pausedTotal = (st.pausedTotal||0) + (Date.now()-st.pausedAt); st.pausedAt = null; }
+  else st.pausedAt = Date.now();
+  save(); applyPause(); tick();
+}
+function tick(){
+  if(!cur || cur.state.submitted) return;
+  const left = Math.max(0, cur.T.limitSec - Math.floor(elapsedMs()/1000));
+  $('clock').textContent = fmt(left);
+  $('clock').classList.toggle('low', left<=300);
+  if(left<=0) finish();
+}
+function begin(){
+  const st = cur.state;
+  if(!st.started){ st.started = Date.now(); save(); }
+  $('startBox').hidden = true; $('paper').hidden = false;
+  $('finishBtn').hidden = st.submitted; $('resetTimerBtn').hidden = st.submitted; $('pauseBtn').hidden = st.submitted; $('retryBtn').hidden = false;
+  render();
+  clearInterval(cur.timer);
+  if(!st.submitted){ $('result').hidden = true; tick(); cur.timer = setInterval(tick, 1000); }
+  else showResult();
+  applyPause();
+}
+function twoStep(btn, label, armedLabel, action){
+  let armed = false;
+  btn.addEventListener('click', ()=>{
+    if(!armed){ armed = true; btn.textContent = armedLabel; setTimeout(()=>{ armed=false; btn.textContent = label; }, 4000); return; }
+    armed = false; btn.textContent = label; action();
+  });
+}
+$('pauseBtn').addEventListener('click', togglePause);
+$('resumeBtn').addEventListener('click', togglePause);
+$('startBtn').addEventListener('click', begin);
+twoStep($('resetTimerBtn'), '⏱ 30分に戻す', 'もう一度押すとリセット', ()=>{
+  const st=cur.state; st.started = Date.now(); st.pausedTotal = 0; st.pausedAt = st.pausedAt ? Date.now() : null; save(); tick();
+});
+twoStep($('retryBtn'), '↺ やり直す', '回答を消す？もう一度押す', ()=>{
+  cur.state = {started: Date.now(), answers:{}, submitted:false}; save(); window.scrollTo({top:0}); begin();
+});
+twoStep($('finishBtn'), '提出する', '本当に提出？もう一度', ()=>finish());
+$('backBtn').addEventListener('click', ()=>{
+  if(cur && cur.state.started && !cur.state.submitted && !cur.state.pausedAt){ cur.state.pausedAt = Date.now(); save(); }
+  if(cur && cur.timer) clearInterval(cur.timer);
+  $('test').hidden = true; $('home').hidden = false; renderHome(); window.scrollTo({top:0});
+});
+
+function summary(){
+  const per = {}; const wrong = [];
+  cur.flat.forEach(q=>{
+    per[q.secName] = per[q.secName]||{ok:0,n:0}; per[q.secName].n++;
+    if(cur.state.answers[q.id]===q.a) per[q.secName].ok++;
+    else wrong.push({id:q.id, sec:q.sec, point:q.pt, picked: cur.state.answers[q.id]===undefined?null:cur.state.answers[q.id]});
+  });
+  const ok = cur.flat.length - wrong.length;
+  const used = Math.min(cur.T.limitSec, Math.floor(elapsedMs(cur.state.finishedAt)/1000));
+  return {ok, per, wrong, used};
+}
+function finish(){
+  const st = cur.state;
+  if(st.submitted){ showResult(); return; }
+  if(st.pausedAt){ st.pausedTotal=(st.pausedTotal||0)+(Date.now()-st.pausedAt); st.pausedAt=null; }
+  st.submitted = true; st.finishedAt = Date.now(); save();
+  clearInterval(cur.timer);
+  ['finishBtn','resetTimerBtn','pauseBtn'].forEach(b=>$(b).hidden=true); applyPause();
+  cur.flat.forEach(q=>paint(q));
+  const s = summary();
+  const results = getResults();
+  results.push({testId:cur.rec.id, date:cur.T.date, at:Date.now(), score:s.ok, total:cur.flat.length, usedSec:s.used, perSection:s.per, wrong:s.wrong});
+  lsSet(K.results, results.slice(-200));
+  showResult();
+}
+function showResult(){
+  const s = summary(); const r = $('result'); r.hidden = false;
+  const pct = s.ok/cur.flat.length;
+  const msg = pct>=0.8 ? 'すばらしい！合格ラインを余裕で超えています🎉' : pct>=0.6 ? 'いい調子！弱点を潰せば一気に伸びます💪' : '大丈夫、間違えた所こそ伸びしろです。解説を読み直しましょう📖';
+  r.innerHTML = '<div class="eyebrow">結果</div><div class="score">'+s.ok+' <small>/ '+cur.flat.length+'　（'+fmt(s.used)+' 使用）</small></div><p>'+msg+'</p>'+
+    '<div class="rows">'+Object.entries(s.per).map(([k,v])=>'<div class="row"><span>'+k+'</span><span>'+v.ok+' / '+v.n+'</span></div>').join('')+'</div>'+
+    (s.wrong.length? '<p style="margin-bottom:0">今日の弱点：</p><div class="chips">'+s.wrong.map(w=>'<span class="chip">'+esc(w.point)+'</span>').join('')+'</div>' : '<div class="chips"><span class="chip ok">全問正解！</span></div>')+
+    '<p class="note">✅ この端末に記録しました。間違えた所は次に作る模試で再登場します。</p>';
+  r.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+}
+
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && cur && !$('test').hidden) tick(); });
+renderHome();
+})();
+</script>
+</body>
+</html>
