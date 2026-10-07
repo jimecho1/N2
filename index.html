@@ -94,6 +94,9 @@ body.nofuri .exp:not(.furi-on) rt{display:none}
 .exp td,.exp th{border:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
 .tblwrap{overflow-x:auto}
 .passage{background:var(--sheet);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:16px 18px;margin-top:12px;font-family:var(--display);font-size:16.5px;line-height:2}
+.passage table{border-collapse:collapse;width:100%;font-family:var(--body);font-size:14px;line-height:1.6;margin:6px 0}
+.passage td,.passage th{border:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+.passage{overflow-x:auto}
 .passage .ttl{font-family:var(--body);font-weight:700;font-size:14px;color:var(--muted);margin-bottom:6px}
 .hk{margin-top:10px;font-size:14px;font-family:var(--body);color:var(--muted)}
 .hk summary{cursor:pointer;color:var(--accent)}
@@ -128,7 +131,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
   <header class="top">
     <div class="eyebrow" id="homeDate">JLPT N2 ・ 言語知識＋読解</div>
     <h1>N2 ミニ模試</h1>
-    <p class="lead">ボタンを押すと、新しい30分模試をその場で作ります。間違えた文型・語彙は次のテストに形を変えて再登場します。</p>
+    <p class="lead">ボタンを押すと、N2の全14題型（聴解以外）が入った45分の模試をその場で作ります。間違えた文型・語彙は次のテストに形を変えて再登場します。</p>
   </header>
 
   <div class="card genbox" id="genCard">
@@ -211,18 +214,10 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
     <div class="eyebrow" id="dateLine"></div>
     <p class="note" id="tokLine" hidden style="margin:2px 0 0"></p>
     <h1>N2 ミニ模試</h1>
-    <p class="lead">語彙10問・文法12問・読解4問。1問ずつ答えるとすぐ解説が出ます。30分で自動提出です。</p>
+    <p class="lead" id="testLead"></p>
   </header>
   <div class="card start" id="startBox">
-    <table>
-      <tr><td>問題1 漢字読み</td><td>3問</td></tr>
-      <tr><td>問題2 文脈規定</td><td>4問</td></tr>
-      <tr><td>問題3 言い換え類義</td><td>3問</td></tr>
-      <tr><td>問題4 文法形式の判断</td><td>8問</td></tr>
-      <tr><td>問題5 文の組み立て（★）</td><td>4問</td></tr>
-      <tr><td>問題6 内容理解（短文）</td><td>2篇・4問</td></tr>
-      <tr><td>制限時間</td><td>30:00</td></tr>
-    </table>
+    <table id="startTbl"></table>
     <div style="margin-top:12px"><button class="btn" id="startBtn">テスト開始</button></div>
   </div>
   <div class="pausebox" id="pauseBox" hidden><b>一時停止中</b>　問題は隠れています。<br><button class="btn" id="resumeBtn" style="margin-top:10px">▶ 再開する</button></div>
@@ -358,13 +353,22 @@ const PROVIDERS = {
   qwen:{label:'通義千問 Qwen（Alibaba Cloud 国際版）', base:'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model:'qwen-plus', keyPh:'sk-...'},
   custom:{label:'その他（OpenAI 互換 API）', base:'', model:'', keyPh:''}
 };
+const SEC_ORDER = ['kanji','hyouki','gokeisei','bunmyaku','iikae','youhou','keishiki','narabe','bunshou','tanbun','chuubun','tougou','shuchou','jouhou'];
 const SEC_META = {
-  kanji:   {title:'問題1', name:'漢字読み', inst:'＿＿の言葉の読み方として最もよいものを、1・2・3・4から一つ選びなさい。'},
-  bunmyaku:{title:'問題2', name:'文脈規定', inst:'（　　）に入れるのに最もよいものを、1・2・3・4から一つ選びなさい。'},
-  iikae:   {title:'問題3', name:'言い換え類義', inst:'＿＿の言葉に意味が最も近いものを、1・2・3・4から一つ選びなさい。'},
-  keishiki:{title:'問題4', name:'文法形式の判断', inst:'次の文の（　　）に入れるのに最もよいものを、1・2・3・4から一つ選びなさい。'},
-  narabe:  {title:'問題5', name:'文の組み立て', inst:'次の文の　★　に入る最もよいものを、1・2・3・4から一つ選びなさい。'},
-  dokkai:  {title:'問題6', name:'内容理解（短文）', inst:'次の文章を読んで、質問に答えなさい。答えは、1・2・3・4から最もよいものを一つ選びなさい。'}
+  kanji:   {title:'問題1',  name:'漢字読み', type:'q', inst:'＿＿の言葉の読み方として最もよいものを、1・2・3・4から一つ選びなさい。'},
+  hyouki:  {title:'問題2',  name:'表記', type:'q', inst:'＿＿の言葉を漢字で書くとき、最もよいものを、1・2・3・4から一つ選びなさい。'},
+  gokeisei:{title:'問題3',  name:'語形成', type:'q', inst:'（　　）に入れるのに最もよいものを、1・2・3・4から一つ選びなさい。'},
+  bunmyaku:{title:'問題4',  name:'文脈規定', type:'q', inst:'（　　）に入れるのに最もよいものを、1・2・3・4から一つ選びなさい。'},
+  iikae:   {title:'問題5',  name:'言い換え類義', type:'q', inst:'＿＿の言葉に意味が最も近いものを、1・2・3・4から一つ選びなさい。'},
+  youhou:  {title:'問題6',  name:'用法', type:'q', inst:'次の言葉の使い方として最もよいものを、1・2・3・4から一つ選びなさい。'},
+  keishiki:{title:'問題7',  name:'文法形式の判断', type:'q', inst:'次の文の（　　）に入れるのに最もよいものを、1・2・3・4から一つ選びなさい。'},
+  narabe:  {title:'問題8',  name:'文の組み立て', type:'q', inst:'次の文の　★　に入る最もよいものを、1・2・3・4から一つ選びなさい。'},
+  bunshou: {title:'問題9',  name:'文章の文法', type:'p', inst:'次の文章を読んで、文章全体の内容を考えて、（　1　）から（　3　）の中に入る最もよいものを、1・2・3・4から一つ選びなさい。'},
+  tanbun:  {title:'問題10', name:'内容理解（短文）', type:'p', inst:'次の文章を読んで、後の問いに対する答えとして最もよいものを、1・2・3・4から一つ選びなさい。'},
+  chuubun: {title:'問題11', name:'内容理解（中文）', type:'p', inst:'次の文章を読んで、後の問いに対する答えとして最もよいものを、1・2・3・4から一つ選びなさい。'},
+  tougou:  {title:'問題12', name:'統合理解', type:'p', inst:'次のAとBの文章を読んで、後の問いに対する答えとして最もよいものを、1・2・3・4から一つ選びなさい。'},
+  shuchou: {title:'問題13', name:'主張理解（長文）', type:'p', inst:'次の文章を読んで、後の問いに対する答えとして最もよいものを、1・2・3・4から一つ選びなさい。'},
+  jouhou:  {title:'問題14', name:'情報検索', type:'p', inst:'次のページは、ある案内である。これを読んで、下の質問に答えなさい。答えは、1・2・3・4から最もよいものを一つ選びなさい。'}
 };
 function metaOf(k){ const m = SEC_META[k]; return {title:m.title, name:m.name, inst:m.inst}; }
 
@@ -389,24 +393,33 @@ $('provIn').addEventListener('change', ()=>{
   $('modelIn').dispatchEvent(new Event('input'));
 });
 
-const Q_SHAPE = '{"q":"問題文","o":["選択肢A","選択肢B","選択肢C","選択肢D"],"a":0,"pt":"文型・語彙名","e":"解説HTML"}';
+const Q_SHAPE = '{"q":"問題文","o":["選択肢A","選択肢B","選択肢C","選択肢D"],"a":0,"pt":"文型・語彙名","e":"解説"}';
+const P_SHAPE = '{"ttl":"","text":"本文","hk":"廣東話意訳","qs":[問題,…]}';
 function commonRules(){ const furi = lsGet(K.furi, true); return `あなたは廣東話母語の学習者を JLPT N2 合格へ導く、親切で生き生きとした日本語教師です。本番形式の模試問題を作り、指定された JSON だけを出力します。
 
-【解説 e のルール】
+【解説 e の内容】
 - 100% 日本語。親切・生き生きとした先生口調、少しユーモア、絵文字OK。⭕️❌△⚠️💡で正誤と要点を示す。
-- 必ず小さな HTML の <table>（<tr><th>…</th></tr><tr><td>…</td></tr>）で、正解と紛らわしい選択肢の違い（意味・接続・ニュアンス）を比較する。
+- 必ず小さな比較表で、正解と紛らわしい選択肢の違い（意味・接続・ニュアンス）を比べる。表は見出し＋3〜4行まで。
 - 選択肢を番号（1番、2の…）で呼ばない。必ず語句そのもので呼ぶ（選択肢はアプリが並べ替えます）。
 - 弱点の再出題問題は、解説の最初に「🔁 弱点リベンジ！」と書く。
-- 1問の解説は簡潔に（100〜200字＋表）。表は3〜4行まで。
+- 1問の解説は簡潔に（100〜200字＋表）。
+
+【解説 e の書き方（アプリが自動で整形するので、この記法を必ず守る）】
+- 改行は \\n。
+- 表は HTML を使わず、行頭と行末が | の行で書く。1行目が見出し。例：\\n|語|意味|判定|\\n|むじゅん|話のつじつまが合わない|⭕️|
+- 表以外で使ってよい HTML は <b> と <u> だけ。
+${furi ? `- 【重要】解説 e の中の漢字には、例外なく全部、直後に《よみ》を付ける（キーワードだけでなく、普通の言葉・簡単な漢字・表の中・「正しい順番」の中も全部）。熟語は熟語単位：矛盾《むじゅん》、意味《いみ》。送り仮名は《》の外：言《い》う、締《し》め切《き》り。読みは文脈に合わせる：今日《きょう》、一人《ひとり》。出力前に、《》が付いていない漢字が e に残っていないか必ず確認する。
+- 問題文 q・選択肢 o・本文 text・hk には《》を使わない（答えが分かってしまうため）。` : `- ふりがな・読みがなは付けない（漢字読み問題の選択肢だけは例外）。`}
 
 【全体ルール】
-${furi ? `- 【重要】解説 e の中の漢字は、例外なく全部に HTML の <ruby> でふりがなを付ける。キーワードだけでなく、普通の言葉・簡単な漢字（人、日、本、上、手、時、言う、行く、来る など）・表 <table> の中・「正しい順番」の中も全部。熟語は熟語単位で：<ruby>矛盾<rt>むじゅん</rt></ruby>、<ruby>意味<rt>いみ</rt></ruby>。送り仮名は ruby の外：<ruby>言<rt>い</rt></ruby>う、<ruby>締<rt>し</rt></ruby>め<ruby>切<rt>き</rt></ruby>り。読みは文脈に合わせる（<ruby>今日<rt>きょう</rt></ruby>、<ruby>一人<rt>ひとり</rt></ruby>）。出力前に、e の中に ruby が付いていない漢字が残っていないか必ず確認する。
-- 問題文 q・選択肢 o・読解の本文 text にはふりがなを付けない（答えが分かってしまうため）。` : `- ふりがな・読みがなを付けない（漢字読み問題の選択肢だけは例外）。`}
 - 正解は必ず1つに決まること。出力前に全問を自分で解き直し、他の選択肢でも成立する問題は作り直す。
 - a は正解選択肢の index（0〜3）。正解の位置は偏らせない。
-- 問題文の空欄は（　　）、下線は <u>…</u> を使う。
-- 自然で現代的な日本語。
-- 出力は JSON オブジェクトのみ（説明文やコードブロック記号は書かない）。各問題の形：${Q_SHAPE}`; }
+- 問題文の空欄は（　　）、下線は <u>…</u> を使う。本文 text の改行は <br>。
+- 文章はすべてオリジナル。自然で現代的な日本語。
+- hk は本文の【廣東話口語】の自然な意訳（嘅、咗、唔、喺、啲 などを使う香港の話し言葉。普通話の書き言葉にしない）。改行は <br>。
+- 出力は JSON オブジェクトのみ（説明文やコードブロック記号は書かない）。
+- 問題の形：${Q_SHAPE}
+- 文章問題の形：${P_SHAPE}`; }
 
 function pick(arr, n){ const a = arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a.slice(0,n); }
 
@@ -419,48 +432,59 @@ function buildParts(){
   const weakBy = (secs,n) => weak.filter(w=>secs.includes(w.sec)).slice(0,n);
   const focusDays = pick(GRAMMAR, 4).sort((a,b)=>a.day-b.day);
   const vocabThemes = pick(VOCAB, 4);
-  const weakText = (list)=> list.length ? `\n【弱点の再出題】学習者が直近7日で間違えた項目です。次の項目を、文や形を変えて混ぜてください（同じ文の丸写しは禁止）。実際に選んで間違えたものを優先：\n${list.map(w=>`- ${w.point}${w.picked?'（選択ミス）':'（時間切れ）'}`).join('\n')}\n` : '';
+  const gramList = focusDays.map(d=>`DAY${String(d.day).padStart(2,'0')} ${d.theme}：${d.items.join('、')}`).join('\n');
+  const weakText = (list)=> list.length ? `\n【弱点の再出題】学習者が直近7日で間違えた項目です。文や形を変えて混ぜてください（同じ文の丸写しは禁止）。実際に選んで間違えたものを優先：\n${list.map(w=>`- ${w.point}${w.picked?'（選択ミス）':'（時間切れ）'}`).join('\n')}\n` : '';
   const avoidText = (list)=> list.length ? `\n【重複を避ける】最近出た項目（弱点の再出題以外は避ける）：${list.join('、')}\n` : '';
-
-  const vocabW = weakBy(['kanji','bunmyaku','iikae'],3);
-  const readW = weakBy(['dokkai'],2);
+  const head = `今日の日付：${today}\n`;
+  const READ = ['tanbun','chuubun','tougou','shuchou','jouhou','dokkai'];
 
   const parts = [
-    {key:'vocab', label:'語彙', secs:['kanji','bunmyaku','iikae'], counts:{kanji:3,bunmyaku:4,iikae:3},
-     user:`今日の日付：${today}
-語彙パート（10問）を作ってください。
-- kanji 漢字読み 3問：下線語 <u>…</u> の読み。選択肢は紛らわしいひらがな4つ。
-- bunmyaku 文脈規定 4問：（　　）に入る語彙（名詞・動詞・副詞・カタカナ語・コロケーション）。
-- iikae 言い換え類義 3問：下線語 <u>…</u> に最も近い意味の語句。
+    {key:'moji', label:'文字', secs:['kanji','hyouki','gokeisei'],
+     user: head+`文字パート（7問）を作ってください。
+- kanji 漢字読み 3問：文中の下線語 <u>…</u> の読み。選択肢は紛らわしいひらがな4つ。
+- hyouki 表記 2問：文中の下線のひらがな語 <u>…</u> を漢字で書くとき最もよいもの。選択肢は同音・形が似た漢字の組み合わせ4つ。
+- gokeisei 語形成 2問：（　　）に入る接頭語・接尾語・複合語の一部（例：「（　　）責任な発言」→無、「国際（　　）が進む」→化）。
 語彙は主に次のテーマから、N2レベル中心で：${vocabThemes.join('／')}
-${weakText(vocabW)}${avoidText(recentBy(['kanji','bunmyaku','iikae']))}
-出力 JSON の形：{"kanji":[問題×3],"bunmyaku":[問題×4],"iikae":[問題×3]}`},
-    {key:'keishiki', label:'文法', secs:['keishiki'], counts:{keishiki:8},
-     user:`今日の日付：${today}
-文法形式の判断パート（keishiki 8問）を作ってください。
+${weakText(weakBy(['kanji','hyouki','gokeisei'],2))}${avoidText(recentBy(['kanji','hyouki','gokeisei']))}
+出力 JSON の形：{"kanji":[問題×3],"hyouki":[問題×2],"gokeisei":[問題×2]}`},
+    {key:'goi', label:'語彙', secs:['bunmyaku','iikae','youhou'],
+     user: head+`語彙パート（7問）を作ってください。
+- bunmyaku 文脈規定 3問：（　　）に入る語彙（名詞・動詞・副詞・カタカナ語・コロケーション）。
+- iikae 言い換え類義 2問：下線語 <u>…</u> に最も近い意味の語句。
+- youhou 用法 2問：q はその語だけ（<b>語</b>）。o はその語を使った4つの文で、正しい使い方は1つだけ。解説では他の3文がなぜおかしいかを短く書く。
+語彙は主に次のテーマから、N2レベル中心で：${vocabThemes.join('／')}
+${weakText(weakBy(['bunmyaku','iikae','youhou'],3))}${avoidText(recentBy(['bunmyaku','iikae','youhou']))}
+出力 JSON の形：{"bunmyaku":[問題×3],"iikae":[問題×2],"youhou":[問題×2]}`},
+    {key:'keishiki', label:'文法', secs:['keishiki'],
+     user: head+`文法形式の判断パート（keishiki 6問）を作ってください。
 - （　　）に入る文型を選ぶ問題。解説では接続と文体レベル（硬い書き言葉／一般／会話／ビジネス）に必ず触れる。
 今日はこの学習済み文型から中心に出題（他のN2文型を1問混ぜてもよい）：
-${focusDays.map(d=>`DAY${String(d.day).padStart(2,'0')} ${d.theme}：${d.items.join('、')}`).join('\n')}
+${gramList}
 ${weakText(weakBy(['keishiki'],3))}${avoidText(recentBy(['keishiki']))}
-出力 JSON の形：{"keishiki":[問題×8]}`},
-    {key:'narabe', label:'並べ替え', secs:['narabe'], counts:{narabe:4},
-     user:`今日の日付：${today}
-文の組み立てパート（narabe 4問）を作ってください。
-- 問題文は「…＿＿ ＿＿ <span class='star'>★</span> ＿＿…」の形で、★は必ず3番目の空欄。o は4つの語句をバラバラの順で並べ、a は★に入る語句の index。
-- 解説の最初に「正しい順番：A → B → <b>C</b> → D」を書き、文型の接続・文体にも短く触れる（表は小さくてよい）。
-次の学習済み文型から出題：
-${focusDays.map(d=>`DAY${String(d.day).padStart(2,'0')} ${d.theme}：${d.items.join('、')}`).join('\n')}
-${weakText(weakBy(['narabe'],2))}${avoidText(recentBy(['narabe']))}
-出力 JSON の形：{"narabe":[問題×4]}`},
-    {key:'dokkai', label:'読解', secs:['dokkai'], counts:{dokkai:2},
-     user:`今日の日付：${today}
-読解パート（短文2篇×各2問）を作ってください。
-- 1篇目：オリジナルの意見文（200〜300字）。設問は「筆者の考え」「下線部・キーワードの意味」など。
-- 2篇目：オリジナルのお知らせ・メール等の情報検索型（日付・期限・条件・例外「ただし」「なお」を読み取る）。日付計算を含む場合は曜日と日付が正しいか必ず確認。
-- text の改行は <br>。
-- hk は本文の【廣東話口語】の自然な意訳（嘅、咗、唔、喺、啲 などを使う香港の話し言葉。普通話の書き言葉にしない）。
-${weakText(readW)}
-出力 JSON の形：{"dokkai":[{"ttl":"（1）","text":"本文","hk":"廣東話意訳","qs":[問題×2]},{"ttl":"（2）","text":"本文","hk":"廣東話意訳","qs":[問題×2]}]}`}
+出力 JSON の形：{"keishiki":[問題×6]}`},
+    {key:'kumitate', label:'組み立て・文章の文法', secs:['narabe','bunshou'],
+     user: head+`文法パート2を作ってください。
+- narabe 文の組み立て 3問：問題文は「…＿＿ ＿＿ <span class='star'>★</span> ＿＿…」の形で、★は必ず3番目の空欄。o は4つの語句をバラバラの順で並べ、a は★に入る語句の index。解説の最初に「正しい順番：A → B → <b>C</b> → D」を書き、文型の接続・文体にも短く触れる。
+- bunshou 文章の文法 1篇：エッセイ・コラム（350〜450字）。本文中に空欄（　1　）（　2　）（　3　）を3つ入れる。qs は3問で、各 q は「（　1　）」のように空欄番号だけ。接続詞・指示語・文末表現・受身や使役などの視点を問う。ttl は空文字。
+次の学習済み文型を中心に：
+${gramList}
+${weakText(weakBy(['narabe','bunshou'],2))}${avoidText(recentBy(['narabe','bunshou']))}
+出力 JSON の形：{"narabe":[問題×3],"bunshou":[文章問題×1（qs は3問）]}`},
+    {key:'dokkai1', label:'短文・中文', secs:['tanbun','chuubun'],
+     user: head+`読解パート1を作ってください。
+- tanbun 内容理解（短文）1篇：200〜250字（説明文・メモ・お知らせ・随筆のどれか）、設問1問。ttl は「（1）」。
+- chuubun 内容理解（中文）1篇：450〜550字の評論・解説・エッセイ、設問2問（理由・筆者の考え・下線部の内容など。下線部は本文中に <u>…</u>）。ttl は「（1）」。
+${weakText(weakBy(READ,2))}
+出力 JSON の形：{"tanbun":[文章問題×1（qs は1問）],"chuubun":[文章問題×1（qs は2問）]}`},
+    {key:'dokkai2', label:'統合・情報検索', secs:['tougou','jouhou'],
+     user: head+`読解パート2を作ってください。
+- tougou 統合理解 1組：同じテーマについて立場の違う A・B 2つの文章（各250〜300字）。text は「<b>A</b><br>…<br><br><b>B</b><br>…」の形。設問2問（「AとBが共通して述べていること」「AとBの考え方の違い」など）。hk も A・B 両方。ttl は空文字。
+- jouhou 情報検索 1篇：講座の案内・募集・料金表などの資料（項目・条件・日付・金額を含む。表が必要なら text の中で HTML の <table> を使ってよい）。設問2問（条件に合うものを探す・費用や期限を計算する）。日付・曜日・金額の計算が正しいか必ず確認。ttl は資料のタイトル。
+出力 JSON の形：{"tougou":[文章問題×1（qs は2問）],"jouhou":[文章問題×1（qs は2問）]}`},
+    {key:'dokkai3', label:'長文', secs:['shuchou'],
+     user: head+`読解パート3を作ってください。
+- shuchou 主張理解（長文）1篇：700〜850字の論説文（社会・仕事・教育・技術などのテーマ）。設問2問（筆者の主張・下線部の理由など。下線部は本文中に <u>…</u>）。ttl は空文字。
+出力 JSON の形：{"shuchou":[文章問題×1（qs は2問）]}`}
   ];
   return {today, parts};
 }
@@ -473,12 +497,12 @@ function parseLooseJSON(s){
 }
 function checkQ(q){ return q && typeof q.q==='string' && Array.isArray(q.o) && q.o.length===4 && Number.isInteger(+q.a) && +q.a>=0 && +q.a<=3; }
 function validatePart(part, raw){
-  if(part.key==='dokkai'){
-    if(!Array.isArray(raw.dokkai) || !raw.dokkai.length) throw new Error('読解が空');
-    raw.dokkai.forEach(p=>{ if(!p.text || !Array.isArray(p.qs) || !p.qs.length || !p.qs.every(checkQ)) throw new Error('読解の形式エラー'); });
-  } else {
-    part.secs.forEach(k=>{ if(!Array.isArray(raw[k]) || !raw[k].length || !raw[k].every(checkQ)) throw new Error(SEC_META[k].name+' の形式エラー'); });
-  }
+  part.secs.forEach(k=>{
+    const arr = raw[k], m = SEC_META[k];
+    if(!Array.isArray(arr) || !arr.length) throw new Error(m.name+' が空');
+    if(m.type==='p'){ arr.forEach(p=>{ if(!p || !p.text || !Array.isArray(p.qs) || !p.qs.length || !p.qs.every(checkQ)) throw new Error(m.name+' の形式エラー'); }); }
+    else if(!arr.every(checkQ)) throw new Error(m.name+' の形式エラー');
+  });
   return raw;
 }
 
@@ -583,7 +607,7 @@ async function generate(){
   const t0 = Date.now(); let chars = 0; const state = {}; const usage = {in:0,out:0};
   parts.forEach(p=>state[p.key]='作成中');
   const tick = setInterval(()=>{
-    $('genBar').style.width = Math.min(97, 3 + chars/16000*94)+'%';
+    $('genBar').style.width = Math.min(97, 3 + chars/42000*94)+'%';
     $('genText').textContent = parts.map(p=>p.label+'：'+state[p.key]).join('　') + '　（'+Math.round((Date.now()-t0)/1000)+'秒）';
   }, 500);
   try{
@@ -652,20 +676,44 @@ function moneyStr(usd){
 }
 function fmtN(n){ return Number(n||0).toLocaleString('en-US'); }
 function tokStr(u){ return '入力 '+fmtN(u.in)+' / 出力 '+fmtN(u.out)+' / 合計 '+fmtN((u.in||0)+(u.out||0))+' tokens' + (u.usd!=null ? ' ≈ '+moneyStr(u.usd) : ''); }
+function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const KANJI_RE = /([㐀-䶿一-鿿豈-﫿々〆ヶ]+)《([^《》]{1,20})》/g;
+function rubyfy(s){ return String(s||'').replace(KANJI_RE, '<ruby>$1<rt>$2</rt></ruby>').replace(/《[^《》]{0,20}》/g,''); }
+function fmtE(e){
+  e = String(e||'');
+  if(/<table/i.test(e)) return rubyfy(e);
+  const lines = e.replace(/\r/g,'').replace(/\\n/g,'\n').split('\n');
+  const out = []; let tbl = null;
+  const flush = ()=>{ if(tbl){ out.push('<table>'+tbl.map((r,i)=>'<tr>'+r.map(c=>i===0?'<th>'+c+'</th>':'<td>'+c+'</td>').join('')+'</tr>').join('')+'</table>'); tbl=null; } };
+  lines.forEach(l=>{
+    const t = l.trim();
+    if(/^\|.*\|$/.test(t)){
+      const cells = t.slice(1,-1).split('|').map(c=>c.trim());
+      if(cells.every(c=>/^:?-{2,}:?$/.test(c))) return;
+      (tbl = tbl||[]).push(cells);
+    } else { flush(); if(t) out.push(t); }
+  });
+  flush();
+  let html = ''; out.forEach((b,i)=>{ html += (i && !b.startsWith('<table') && !out[i-1].startsWith('<table') ? '<br>' : '') + b; });
+  return rubyfy(html);
+}
 function assemble(raw, today){
   const mmdd = today.slice(5).replace('-','');
   let n = 0;
   const fixQ = q=>{
     n++;
     const a = +q.a; const perm = pick([0,1,2,3],4);
-    return {id: mmdd+'-'+String(n).padStart(2,'0'), q:q.q, o:perm.map(i=>q.o[i]), a:perm.indexOf(a), pt:q.pt||'', e:q.e||''};
+    return {id: mmdd+'-'+String(n).padStart(2,'0'), q:q.q, o:perm.map(i=>q.o[i]), a:perm.indexOf(a), pt:q.pt||'', e:fmtE(q.e)};
   };
   const sections = [];
-  ['kanji','bunmyaku','iikae','keishiki','narabe'].forEach(k=>{
-    sections.push(Object.assign({key:k}, metaOf(k), {qs: raw[k].map(fixQ)}));
+  SEC_ORDER.forEach(k=>{
+    const m = SEC_META[k], arr = raw[k]; if(!arr) return;
+    const base = {key:k, title:m.title, name:m.name, inst:m.inst};
+    if(m.type==='p') base.passages = arr.map(p=>({ttl:p.ttl||'', text:p.text, hk:p.hk||'', qs:p.qs.map(fixQ)}));
+    else base.qs = arr.map(fixQ);
+    sections.push(base);
   });
-  sections.push(Object.assign({key:'dokkai'}, metaOf('dokkai'), {passages: raw.dokkai.map((p,i)=>({ttl:p.ttl||('（'+(i+1)+'）'), text:p.text, hk:p.hk||'', qs:p.qs.map(fixQ)}))}));
-  return {date:today, limitSec:1800, sections};
+  return {date:today, limitSec:2700, sections, kind:'all14'};
 }
 
 $('genBtn').addEventListener('click', generate);
@@ -703,6 +751,9 @@ function openTest(id){
   $('home').hidden = true; $('test').hidden = false; window.scrollTo({top:0});
   $('dateLine').textContent = 'JLPT N2 ・ ' + T.date.replace(/-/g,'.') + ' ・ 言語知識＋読解';
   $('tokLine').hidden = !rec.usage; if(rec.usage) $('tokLine').textContent = '🧮 このテストの作成に使ったトークン：'+tokStr(rec.usage)+(rec.model?'（'+rec.model+'）':'');
+  const mins = Math.round(T.limitSec/60);
+  $('testLead').textContent = T.sections.length+'題型・'+cur.flat.length+'問。1問ずつ答えるとすぐ解説が出ます。'+mins+'分で自動提出です。';
+  $('startTbl').innerHTML = T.sections.map(s=>'<tr><td>'+s.title+' '+s.name+'</td><td>'+(s.passages ? s.passages.length+'篇・'+s.passages.reduce((n,p)=>n+p.qs.length,0)+'問' : s.qs.length+'問')+'</td></tr>').join('') + '<tr><td>制限時間</td><td>'+fmt(T.limitSec)+'</td></tr>';
   $('count').textContent = '0 / '+cur.flat.length;
   $('progbar').style.width = '0';
   $('clock').textContent = fmt(T.limitSec); $('clock').classList.remove('low','paused');
