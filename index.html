@@ -367,7 +367,7 @@ const COMMON_RULES =
 - 必ず小さな HTML の <table>（<tr><th>…</th></tr><tr><td>…</td></tr>）で、正解と紛らわしい選択肢の違い（意味・接続・ニュアンス）を比較する。
 - 選択肢を番号（1番、2の…）で呼ばない。必ず語句そのもので呼ぶ（選択肢はアプリが並べ替えます）。
 - 弱点の再出題問題は、解説の最初に「🔁 弱点リベンジ！」と書く。
-- 1問の解説は簡潔に（120〜220字＋表）。
+- 1問の解説は簡潔に（100〜200字＋表）。表は3〜4行まで。
 
 【全体ルール】
 - ふりがな・読みがなを付けない（漢字読み問題の選択肢だけは例外）。
@@ -392,7 +392,6 @@ function buildParts(){
   const avoidText = (list)=> list.length ? `\n【重複を避ける】最近出た項目（弱点の再出題以外は避ける）：${list.join('、')}\n` : '';
 
   const vocabW = weakBy(['kanji','bunmyaku','iikae'],3);
-  const gramW = weakBy(['keishiki','narabe'],3);
   const readW = weakBy(['dokkai'],2);
 
   const parts = [
@@ -405,15 +404,23 @@ function buildParts(){
 語彙は主に次のテーマから、N2レベル中心で：${vocabThemes.join('／')}
 ${weakText(vocabW)}${avoidText(recentBy(['kanji','bunmyaku','iikae']))}
 出力 JSON の形：{"kanji":[問題×3],"bunmyaku":[問題×4],"iikae":[問題×3]}`},
-    {key:'grammar', label:'文法', secs:['keishiki','narabe'], counts:{keishiki:8,narabe:4},
+    {key:'keishiki', label:'文法', secs:['keishiki'], counts:{keishiki:8},
      user:`今日の日付：${today}
-文法パート（12問）を作ってください。
-- keishiki 文法形式の判断 8問：（　　）に入る文型。解説では接続と文体レベル（硬い書き言葉／一般／会話／ビジネス）に必ず触れる。
-- narabe 文の組み立て 4問：問題文は「…＿＿ ＿＿ <span class='star'>★</span> ＿＿…」の形で、★は必ず3番目の空欄。o は4つの語句をバラバラの順で並べ、a は★に入る語句の index。解説の最初に「正しい順番：A → B → <b>C</b> → D」を書き、文型の接続・文体にも触れる。
-今日はこの学習済み文型から中心に出題（他のN2文型を1〜2問混ぜてもよい）：
+文法形式の判断パート（keishiki 8問）を作ってください。
+- （　　）に入る文型を選ぶ問題。解説では接続と文体レベル（硬い書き言葉／一般／会話／ビジネス）に必ず触れる。
+今日はこの学習済み文型から中心に出題（他のN2文型を1問混ぜてもよい）：
 ${focusDays.map(d=>`DAY${String(d.day).padStart(2,'0')} ${d.theme}：${d.items.join('、')}`).join('\n')}
-${weakText(gramW)}${avoidText(recentBy(['keishiki','narabe']))}
-出力 JSON の形：{"keishiki":[問題×8],"narabe":[問題×4]}`},
+${weakText(weakBy(['keishiki'],3))}${avoidText(recentBy(['keishiki']))}
+出力 JSON の形：{"keishiki":[問題×8]}`},
+    {key:'narabe', label:'並べ替え', secs:['narabe'], counts:{narabe:4},
+     user:`今日の日付：${today}
+文の組み立てパート（narabe 4問）を作ってください。
+- 問題文は「…＿＿ ＿＿ <span class='star'>★</span> ＿＿…」の形で、★は必ず3番目の空欄。o は4つの語句をバラバラの順で並べ、a は★に入る語句の index。
+- 解説の最初に「正しい順番：A → B → <b>C</b> → D」を書き、文型の接続・文体にも短く触れる（表は小さくてよい）。
+次の学習済み文型から出題：
+${focusDays.map(d=>`DAY${String(d.day).padStart(2,'0')} ${d.theme}：${d.items.join('、')}`).join('\n')}
+${weakText(weakBy(['narabe'],2))}${avoidText(recentBy(['narabe']))}
+出力 JSON の形：{"narabe":[問題×4]}`},
     {key:'dokkai', label:'読解', secs:['dokkai'], counts:{dokkai:2},
      user:`今日の日付：${today}
 読解パート（短文2篇×各2問）を作ってください。
@@ -489,7 +496,7 @@ async function callClaude(cfg, system, user, onChunk, signal, maxTokens){
     res = await fetch(cfg.base+'/v1/messages', {
       method:'POST', signal,
       headers:{'content-type':'application/json','x-api-key':cfg.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({model:cfg.model, stream:true, max_tokens:maxTokens||12000, system,
+      body: JSON.stringify({model:cfg.model, stream:true, max_tokens:maxTokens||32000, system,
         messages:[{role:'user',content:user}]})
     });
   }catch(e){
