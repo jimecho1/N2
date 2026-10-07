@@ -151,8 +151,9 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
       <summary>⚙️ 設定・バックアップ</summary>
       <label class="f" for="provIn">AI サービス</label>
       <select class="t" id="provIn">
-        <option value="deepseek">DeepSeek</option>
-        <option value="qwen">通義千問 Qwen（Alibaba Cloud 国際版）</option>
+        <option value="anthropic">Claude（Anthropic）※香港では使えません</option>
+        <option value="deepseek">DeepSeek（香港OK）</option>
+        <option value="qwen">通義千問 Qwen（Alibaba Cloud 国際版・香港OK）</option>
         <option value="custom">その他（OpenAI 互換 API）</option>
       </select>
       <label class="f" for="keyIn">API キー</label>
@@ -325,6 +326,7 @@ $('importIn').addEventListener('change', async e=>{
 
 /* ---------- GENERATION ---------- */
 const PROVIDERS = {
+  anthropic:{label:'Claude（Anthropic）', base:'https://api.anthropic.com', model:'claude-sonnet-5-5', keyPh:'sk-ant-...'},
   deepseek:{label:'DeepSeek', base:'https://api.deepseek.com', model:'deepseek-chat', keyPh:'sk-...'},
   qwen:{label:'通義千問 Qwen（Alibaba Cloud 国際版）', base:'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model:'qwen-plus', keyPh:'sk-...'},
   custom:{label:'その他（OpenAI 互換 API）', base:'', model:'', keyPh:''}
@@ -340,7 +342,7 @@ const SEC_META = {
 function metaOf(k){ const m = SEC_META[k]; return {title:m.title, name:m.name, inst:m.inst}; }
 
 function getCfg(){
-  const c = lsGet(K.cfg, null) || {provider:'deepseek', base:PROVIDERS.deepseek.base, model:PROVIDERS.deepseek.model, key:''};
+  const c = lsGet(K.cfg, null) || {provider:'anthropic', base:PROVIDERS.anthropic.base, model:PROVIDERS.anthropic.model, key:''};
   return c;
 }
 function readCfgForm(){
@@ -443,6 +445,7 @@ function validatePart(part, raw){
 }
 
 async function callChat(cfg, system, user, onChunk, signal, maxTokens){
+  if(cfg.provider==='anthropic') return callClaude(cfg, system, user, onChunk, signal, maxTokens);
   let res;
   try{
     res = await fetch(cfg.base+'/chat/completions', {
@@ -480,6 +483,44 @@ async function callChat(cfg, system, user, onChunk, signal, maxTokens){
   if(finish==='length') throw new Error('出力が長すぎて途中で切れました');
   return out;
 }
+async function callClaude(cfg, system, user, onChunk, signal, maxTokens){
+  let res;
+  try{
+    res = await fetch(cfg.base+'/v1/messages', {
+      method:'POST', signal,
+      headers:{'content-type':'application/json','x-api-key':cfg.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:cfg.model, stream:true, max_tokens:maxTokens||12000, system,
+        messages:[{role:'user',content:user}]})
+    });
+  }catch(e){
+    if(e.name==='AbortError') throw e;
+    throw new Error('サーバーに接続できませんでした。ネットワークを確認してください。');
+  }
+  if(!res.ok){
+    let msg = res.status+' '+res.statusText;
+    try{ const j = await res.json(); msg = (j.error && j.error.message) || msg; }catch(e){}
+    if(res.status===403 && /region|country|territor|not allowed|forbidden/i.test(msg)) throw new Error('今いる地域からは Claude API が使えないようです（香港など）。設定で DeepSeek か通義千問に切り替えてください。\n('+msg+')');
+    if(res.status===400 && /credit|balance|billing/i.test(msg)) throw new Error('クレジット残高が足りません。console.anthropic.com でチャージしてください。\n('+msg+')');
+    if(res.status===529) throw new Error('Claude が混雑しています。少し待ってからもう一度。\n('+msg+')');
+    throw new Error(apiHint(res.status, msg));
+  }
+  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf='', out='', stop=null;
+  for(;;){
+    const {done, value} = await reader.read(); if(done) break;
+    buf += dec.decode(value,{stream:true});
+    let i;
+    while((i = buf.indexOf('\n')) >= 0){
+      const line = buf.slice(0,i).trim(); buf = buf.slice(i+1);
+      if(!line.startsWith('data:')) continue;
+      let ev; try{ ev = JSON.parse(line.slice(5)); }catch(e){ continue; }
+      if(ev.type==='content_block_delta' && ev.delta && ev.delta.type==='text_delta'){ out += ev.delta.text; onChunk && onChunk(ev.delta.text.length); }
+      else if(ev.type==='message_delta' && ev.delta) stop = ev.delta.stop_reason;
+      else if(ev.type==='error') throw new Error((ev.error&&ev.error.message)||'API error');
+    }
+  }
+  if(stop==='max_tokens') throw new Error('出力が長すぎて途中で切れました');
+  return out;
+}
 function apiHint(status, msg){
   if(status===401 || status===403) return 'API キーが正しくないか、権限がありません。設定を確認してください。\n('+msg+')';
   if(status===402 || /balance|insufficient|quota|arrear/i.test(msg)) return '残高が足りません。サービスのサイトでチャージしてください。\n('+msg+')';
@@ -515,7 +556,7 @@ async function generate(){
           state[part.key]='✅';
           return raw;
         }catch(e){
-          if(e.name==='AbortError' || /キー|残高|接続できません|モデル名/.test(e.message)) throw e;
+          if(e.name==='AbortError' || /キー|残高|接続できません|モデル名|地域|クレジット/.test(e.message)) throw e;
           lastErr = e;
         }
       }
