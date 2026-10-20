@@ -149,7 +149,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
   </div>
 
   <div class="card" id="bankCard">
-    <h3>📚 題庫 50回分 <small class="note">（オフラインOK・APIキー不要）</small></h3>
+    <h3>📚 題庫 <span id="bankCount"></span> <small class="note">（オフラインOK・APIキー不要）</small></h3>
     <p class="note" id="bankInfo" style="margin:0 0 10px">読み込み中…</p>
     <button class="btn" id="bankNext" hidden>▶ 次の未受験を開く</button>
     <details id="bankList" style="margin-top:10px"><summary class="note" style="cursor:pointer">一覧を見る</summary><div class="rows" id="bankRows"></div></details>
@@ -308,6 +308,7 @@ function renderBank(){
     div.addEventListener('click',()=>openTest(t.id));
     $('bankRows').appendChild(div);
   });
+  $('bankCount').textContent = list.length+'回分';
   $('bankInfo').textContent = '各回 14題型・35問・45分。完了 '+done+' / '+list.length+' 回';
   $('bankNext').hidden = !next;
   if(next){ $('bankNext').textContent = '▶ 次の未受験を開く（'+next.title+'）'; $('bankNext').onclick = ()=>openTest(next.id); }
@@ -726,7 +727,7 @@ function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 const KANJI_RE = /([㐀-䶿一-鿿豈-﫿々〆ヶ]+)《([^《》]{1,20})》/g;
 function rubyfy(s){ return String(s||'').replace(KANJI_RE, '<ruby>$1<rt>$2</rt></ruby>').replace(/《[^《》]{0,20}》/g,''); }
 function fmtE(e){
-  e = String(e||'');
+  e = String(e||'').replace(/\*\*([^*\n]+?)\*\*/g,'<b>$1</b>');
   if(/<table/i.test(e)) return rubyfy(e);
   const lines = e.replace(/\r/g,'').replace(/\\n/g,'\n').split('\n');
   const out = []; let tbl = null;
