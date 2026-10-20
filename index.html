@@ -398,12 +398,13 @@ function wordBack(w){
   if(w.src==='quiz') return '正解：<b>'+rubyOf(w)+'</b><div class="tblwrap">'+w.e+'</div>';
   return '<div class="fans">'+rubyOf(w)+'　<span class="vcat">'+esc(w.pos)+'</span> <span class="vcat">'+esc(w.lv)+'</span></div>'+
     '<div>🇭🇰 '+esc(w.hk)+'</div>'+
-    (w.ex ? '<div style="margin-top:6px">例：'+esc(w.ex)+'</div>' : '')+
+    (w.ex ? '<div style="margin-top:6px">例：'+(w.exr||esc(w.ex))+'</div>' : '')+
     (w.rel ? '<div class="note" style="margin-top:6px">類/対：'+esc(w.rel)+'</div>' : '')+
     (w.note ? '<div class="note" style="margin-top:4px">💡 '+esc(w.note)+'</div>' : '');
 }
 function frontWord(w){
   if(w.src==='quiz') return w.q;
+  if(w.exr) return w.exr;
   if(w.ex && w.ex.includes(w.w)) return esc(w.ex).replace(esc(w.w), '<u>'+esc(w.w)+'</u>');
   return '<u>'+esc(w.w)+'</u>';
 }
