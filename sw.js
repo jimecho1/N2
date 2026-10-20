@@ -1,4 +1,4 @@
-const CACHE = 'n2-4c960363';
+const CACHE = 'n2-70b9dcf4';
 const CORE = ['./', './index.html', './manifest.json', './icon-512.png', './bank.json', './words.json'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));

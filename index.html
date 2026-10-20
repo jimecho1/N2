@@ -391,10 +391,12 @@ function renderVocabHome(){
   $('vocabStart').textContent = due.length ? '🧠 記單字（'+Math.min(due.length,30)+'語）' : '🧠 記單字（ランダム練習）';
   buildVocabList();
 }
+function rubyOf(w){
+  return w.r ? '<ruby>'+esc(w.w)+'<rt>'+esc(w.r)+'</rt></ruby>' : esc(w.w);
+}
 function wordBack(w){
-  if(w.src==='quiz') return '正解：<b>'+esc(w.o[w.a])+'</b><div class="tblwrap">'+w.e+'</div>';
-  const head = w.r ? '<ruby>'+esc(w.w)+'<rt>'+esc(w.r)+'</rt></ruby>' : esc(w.w);
-  return '<div class="fans">'+head+'　<span class="vcat">'+esc(w.pos)+'</span> <span class="vcat">'+esc(w.lv)+'</span></div>'+
+  if(w.src==='quiz') return '正解：<b>'+rubyOf(w)+'</b><div class="tblwrap">'+w.e+'</div>';
+  return '<div class="fans">'+rubyOf(w)+'　<span class="vcat">'+esc(w.pos)+'</span> <span class="vcat">'+esc(w.lv)+'</span></div>'+
     '<div>🇭🇰 '+esc(w.hk)+'</div>'+
     (w.ex ? '<div style="margin-top:6px">例：'+esc(w.ex)+'</div>' : '')+
     (w.rel ? '<div class="note" style="margin-top:6px">類/対：'+esc(w.rel)+'</div>' : '')+
@@ -412,7 +414,7 @@ function buildVocabList(){
   const frag = document.createDocumentFragment();
   WORDS.words.forEach(w=>{
     const row = document.createElement('div'); row.className='vrow'; row.dataset.w = w.w;
-    row.innerHTML = '<span class="w">'+esc(w.w)+'</span><span class="vcat">'+esc(w.lv||w.cat)+'</span><div class="exp" hidden></div>';
+    row.innerHTML = '<span class="w">'+rubyOf(w)+'</span><span class="vcat">'+esc(w.lv||w.cat)+'</span><div class="exp" hidden></div>';
     row.addEventListener('click', ()=>{
       const ex = row.querySelector('.exp');
       if(!ex.innerHTML) ex.innerHTML = wordBack(w);
