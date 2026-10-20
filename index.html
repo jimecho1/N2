@@ -123,6 +123,24 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
 .genprog i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
 .badge{font-size:12px;font-family:var(--mono);padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.prog i,.genprog i{transition:none}.clock.paused{animation:none}}
+/* ---- vocab flashcards ---- */
+.vcat{font-size:12px;font-family:var(--mono);padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);display:inline-block}
+.flash{margin-top:16px;padding:22px 18px;background:var(--sheet);border:1px solid var(--line);border-radius:10px;min-height:120px}
+.flash .fword{font-family:var(--display);font-weight:800;font-size:clamp(22px,6vw,30px);line-height:1.6;margin-top:10px}
+.flash .fword u{text-decoration-thickness:2px;text-underline-offset:4px}
+.flash .fans{font-family:var(--display);font-weight:800;font-size:22px;color:var(--accent);margin:6px 0}
+.flash .exp{margin-top:14px}
+.rate{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.rate button{font:inherit;font-weight:700;padding:14px;border-radius:8px;border:1px solid var(--line);cursor:pointer;background:transparent;-webkit-appearance:none}
+.rate .bad{color:var(--red);border-color:var(--red)}
+.rate .good{color:var(--ok);border-color:var(--ok)}
+.vrow{display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-bottom:1px dashed var(--line);padding:8px 0;cursor:pointer}
+.vrow .w{font-weight:700}
+.vrow .exp{display:none;grid-column:1/-1}
+.vrow.open .exp{display:block}
+.vwrap{display:flex;flex-direction:column}
+.vdone{text-align:center;padding:24px 0}
+.vdone .big{font-family:var(--display);font-size:40px;font-weight:800}
 </style>
 </head>
 <body>
@@ -153,6 +171,16 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
     <p class="note" id="bankInfo" style="margin:0 0 10px">読み込み中…</p>
     <button class="btn" id="bankNext" hidden>▶ 次の未受験を開く</button>
     <details id="bankList" style="margin-top:10px"><summary class="note" style="cursor:pointer">一覧を見る</summary><div class="rows" id="bankRows"></div></details>
+  </div>
+
+  <div class="card" id="vocabCard">
+    <h3>📘 單字 <span id="vocabCount"></span></h3>
+    <p class="note" id="vocabInfo" style="margin:0 0 10px">読み込み中…</p>
+    <button class="btn" id="vocabStart" hidden>🧠 記單字（フラッシュカード）</button>
+    <details id="vocabList" style="margin-top:10px"><summary class="note" style="cursor:pointer">全部の単語を見る</summary>
+      <input class="t" id="vocabSearch" type="search" placeholder="検索（単語で絞り込み）" style="margin-top:8px">
+      <div class="vwrap" id="vocabRows"></div>
+    </details>
   </div>
 
   <div class="card" id="testsCard" hidden>
@@ -234,6 +262,22 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
   <div id="result" hidden></div>
 </div>
 
+<!-- ============ VOCAB ============ -->
+<div id="vocab" hidden>
+  <div class="bar">
+    <button class="btn ghost small" id="vocabBack">← 戻る</button>
+    <div class="prog"><i id="vprogbar"></i></div>
+    <span class="count" id="vcount">0 / 0</span>
+  </div>
+  <header class="top">
+    <div class="eyebrow">単字フラッシュカード</div>
+    <h1>記單字</h1>
+    <p class="lead">単語を見て読み・意味を思い出してから「答えを見る」。覚えていたら😎、忘れていたら😵を押してください。間隔を空けて復習します。</p>
+  </header>
+  <div id="vcard"></div>
+  <div id="vdone" hidden></div>
+</div>
+
 </div>
 
 <script id="grammar-data" type="application/json">[{"day": 1, "theme": "時間①：之前・之際・剛好・逐漸", "items": ["折（に/には）、折から", "にあたって、にあたり", "に際し（て/ては/ての）", "に先立ち、に先立つ、に先立って", "次第", "か〜ないかのうちに", "かと思うと、かと思ったら", "と思うと、と思ったら", "ないうちに", "つつある"]}, {"day": 2, "theme": "時間②：經過・結果・契機", "items": ["あげく（に/の）", "末（に/の）", "上で（の）", "上は", "以上（は）", "たところが", "きり〜ない", "をきっかけに（して）、をきっかけとして", "を契機として、を契機に（して）", "次第です"]}, {"day": 3, "theme": "原因・理由", "items": ["からこそ", "ことから", "ばかりに", "だけに", "あまり（に）", "につけ（て）、につけても", "のももっともだ、のはもっともだ", "ことだから", "からといって", "だけあって"]}, {"day": 4, "theme": "逆接・對比①", "items": ["一方（で）", "ながら（も）", "つつ（も）", "ものの", "にもかかわらず", "くせして", "どころか", "とは限らない", "というものではない、というものでもない", "だけましだ"]}, {"day": 5, "theme": "不論・撇開・限定", "items": ["はともかく（として）", "はまだしも、ならまだしも", "にかかわらず", "を問わず、は問わず", "もかまわず", "にせよ、にもせよ", "にしろ", "どころではない", "に限って、に限り", "にかけては"]}, {"day": 6, "theme": "條件・依據・對應", "items": ["限り", "限り（は/では）", "ない限り", "ないことには", "てこそ", "ものなら", "次第だ、次第で（は）", "に応じて", "にしたがって、にしたがい", "に沿って、に沿い、に沿う、に沿った"]}, {"day": 7, "theme": "可能・不可能・意志", "items": ["得る", "がたい", "かねる", "かねない", "っこない", "そうにない、そうもない", "まい", "か〜まいか", "抜く", "うではないか、ようではないか"]}, {"day": 8, "theme": "義務・不得不・忍不住", "items": ["ざるを得ない", "ずにはいられない", "ないではいられない", "ねばならない、ねばならぬ", "てはならない", "べきではない", "て（は）いられない、てられない、てらんない", "てばかりはいられない、てばかりもいられない", "どうにか（なんとか、もう少し）〜ないもの（だろう）か", "てまで、までして"]}, {"day": 9, "theme": "斷定・推測・評價", "items": ["に相違ない", "にほかならない", "にすぎない", "かのようだ", "というものだ", "ものがある", "ものだ", "も同然だ", "だけのことはある、だけある", "ほどだ、ほどの"]}, {"day": 10, "theme": "程度・樣態・狀態", "items": ["ほど〜はない", "まま", "まま（に）", "ぶり、っぷり", "げ", "こと（も）なく", "抜きで、抜きに、抜きの、抜きには、抜きでは", "を抜きにして（は/も）、は抜きにして", "やら〜やら", "も〜ば〜も、も〜なら〜も"]}, {"day": 11, "theme": "立場・視點・基準", "items": ["からして", "からすれば、からすると", "から見ると、から見れば、から見て（も）", "にしたら、にすれば、にしてみたら、にしてみれば", "の上では", "上（は/では/の/も）", "をもとに（して/した）", "を〜として、を〜とする、を〜とした", "を頼りに、を頼りとして、を頼りにして", "のもとで、のもとに"]}, {"day": 12, "theme": "關聯・附加・提示", "items": ["にこたえて、にこたえ、にこたえる", "にかかわって、にかかわり、にかかわる", "を巡って（は）、を巡る", "にて、でもって", "だけでなく", "のみならず", "上（に）", "といえば、といったら", "というと、っていうと", "ことに（は）"]}, {"day": 13, "theme": "情感・程度＋總複習", "items": ["かいがある、かいがあって", "がい", "て（で）かなわない", "て（で）しかたがない、て（で）しょうがない、て（で）しようがない", "て当然だ、で当たり前だ", "ばかりだ"]}]</script>
@@ -246,7 +290,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
 const $ = id => document.getElementById(id);
 const GRAMMAR = JSON.parse($('grammar-data').textContent);
 const VOCAB = JSON.parse($('vocab-data').textContent);
-const K = {cfg:'n2a.cfg', furi:'n2a.furi', waste:'n2a.waste', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.'};
+const K = {cfg:'n2a.cfg', furi:'n2a.furi', waste:'n2a.waste', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.', words:'n2a.words'};
 
 /* ---------- storage helpers ---------- */
 const mem = {};
@@ -313,6 +357,115 @@ function renderBank(){
   $('bankNext').hidden = !next;
   if(next){ $('bankNext').textContent = '▶ 次の未受験を開く（'+next.title+'）'; $('bankNext').onclick = ()=>openTest(next.id); }
 }
+/* ---------- VOCAB (flashcards) ---------- */
+let WORDS = null, wordsErr = false;
+async function loadWords(){
+  try{ const r = await fetch('words.json'); if(!r.ok) throw new Error(r.status); WORDS = await r.json(); }
+  catch(e){ wordsErr = true; }
+  renderVocabHome();
+}
+const SRS_DAYS = [0,1,3,7,14,30];
+function getWordStates(){ return lsGet(K.words, {}); }
+function wordState(id){ const s = getWordStates()[id]; return s || {box:0, due:0}; }
+function rateWord(id, good){
+  const all = getWordStates();
+  const s = all[id] || {box:0, due:0};
+  s.box = good ? Math.min(s.box+1, SRS_DAYS.length-1) : 0;
+  s.due = Date.now() + SRS_DAYS[s.box]*864e5;
+  s.last = Date.now();
+  all[id] = s;
+  lsSet(K.words, all);
+}
+function dueWords(){
+  if(!WORDS) return [];
+  const now = Date.now();
+  return WORDS.words.filter(w=>wordState(w.id).due<=now);
+}
+function renderVocabHome(){
+  if(!WORDS){ $('vocabInfo').textContent = wordsErr ? '単語ファイル（words.json）が見つかりません。' : '読み込み中…'; return; }
+  const due = dueWords();
+  const mastered = WORDS.words.filter(w=>wordState(w.id).box>=SRS_DAYS.length-1).length;
+  $('vocabCount').textContent = WORDS.words.length+'語';
+  $('vocabInfo').textContent = '今日の復習：'+due.length+'語　・　覚えた語：'+mastered+' / '+WORDS.words.length;
+  $('vocabStart').hidden = false;
+  $('vocabStart').textContent = due.length ? '🧠 記單字（'+Math.min(due.length,30)+'語）' : '🧠 記單字（ランダム練習）';
+  buildVocabList();
+}
+function wordBack(w){
+  if(w.src==='quiz') return '正解：<b>'+esc(w.o[w.a])+'</b><div class="tblwrap">'+w.e+'</div>';
+  const head = w.r ? '<ruby>'+esc(w.w)+'<rt>'+esc(w.r)+'</rt></ruby>' : esc(w.w);
+  return '<div class="fans">'+head+'　<span class="vcat">'+esc(w.pos)+'</span> <span class="vcat">'+esc(w.lv)+'</span></div>'+
+    '<div>🇭🇰 '+esc(w.hk)+'</div>'+
+    (w.ex ? '<div style="margin-top:6px">例：'+esc(w.ex)+'</div>' : '')+
+    (w.rel ? '<div class="note" style="margin-top:6px">類/対：'+esc(w.rel)+'</div>' : '')+
+    (w.note ? '<div class="note" style="margin-top:4px">💡 '+esc(w.note)+'</div>' : '');
+}
+function frontWord(w){
+  if(w.src==='quiz') return w.q;
+  if(w.ex && w.ex.includes(w.w)) return esc(w.ex).replace(esc(w.w), '<u>'+esc(w.w)+'</u>');
+  return '<u>'+esc(w.w)+'</u>';
+}
+let vocabListBuilt = false;
+function buildVocabList(){
+  if(vocabListBuilt || !WORDS) return; vocabListBuilt = true;
+  const rows = $('vocabRows');
+  const frag = document.createDocumentFragment();
+  WORDS.words.forEach(w=>{
+    const row = document.createElement('div'); row.className='vrow'; row.dataset.w = w.w;
+    row.innerHTML = '<span class="w">'+esc(w.w)+'</span><span class="vcat">'+esc(w.lv||w.cat)+'</span><div class="exp" hidden></div>';
+    row.addEventListener('click', ()=>{
+      const ex = row.querySelector('.exp');
+      if(!ex.innerHTML) ex.innerHTML = wordBack(w);
+      row.classList.toggle('open'); ex.hidden = !row.classList.contains('open');
+    });
+    frag.appendChild(row);
+  });
+  rows.appendChild(frag);
+}
+$('vocabSearch').addEventListener('input', ()=>{
+  const q = $('vocabSearch').value.trim();
+  $('vocabRows').querySelectorAll('.vrow').forEach(row=>{ row.hidden = q && !row.dataset.w.includes(q); });
+});
+let VS = null;
+function startVocabSession(){
+  if(!WORDS || !WORDS.words.length) return;
+  let pool = dueWords();
+  if(!pool.length){ pool = pick(WORDS.words.filter(w=>wordState(w.id).box<SRS_DAYS.length-1), 30); if(!pool.length) pool = pick(WORDS.words, 20); }
+  VS = {queue: pick(pool, Math.min(pool.length, 30)), idx:0, good:0};
+  $('home').hidden = true; $('vocab').hidden = false; window.scrollTo({top:0});
+  $('vdone').hidden = true; $('vcard').hidden = false;
+  showVocabCard();
+}
+function showVocabCard(){
+  $('vcount').textContent = (VS.idx+1)+' / '+VS.queue.length;
+  $('vprogbar').style.width = (VS.idx/VS.queue.length*100)+'%';
+  const w = VS.queue[VS.idx];
+  const card = $('vcard');
+  card.innerHTML = '<div class="flash"><span class="vcat">'+esc(w.cat)+'</span><div class="fword">'+frontWord(w)+'</div>'+
+    '<div class="fback" hidden>'+wordBack(w)+'</div>'+
+    '<button class="btn" id="vshow">👀 答えを見る</button>'+
+    '<div class="rate" id="vrate" hidden><button type="button" class="bad" id="vbad">😵 忘れた</button><button type="button" class="good" id="vgood">😎 覚えてた</button></div></div>';
+  $('vshow').addEventListener('click', ()=>{ card.querySelector('.fback').hidden=false; $('vshow').hidden=true; $('vrate').hidden=false; });
+  $('vbad').addEventListener('click', ()=>vocabNext(w,false));
+  $('vgood').addEventListener('click', ()=>vocabNext(w,true));
+}
+function vocabNext(w, good){
+  rateWord(w.id, good); if(good) VS.good++;
+  VS.idx++;
+  if(VS.idx>=VS.queue.length){ finishVocab(); return; }
+  showVocabCard();
+}
+function finishVocab(){
+  $('vprogbar').style.width='100%'; $('vcount').textContent = VS.queue.length+' / '+VS.queue.length;
+  $('vcard').hidden = true; $('vdone').hidden = false;
+  $('vdone').innerHTML = '<div class="vdone"><div class="big">🎉</div><p>'+VS.queue.length+'語を復習しました（覚えてた：'+VS.good+'語）</p><button class="btn" id="vagain">もう一度</button><button class="btn ghost" id="vback" style="margin-top:8px">← ホームへ</button></div>';
+  $('vagain').addEventListener('click', startVocabSession);
+  $('vback').addEventListener('click', backFromVocab);
+}
+function backFromVocab(){ $('vocab').hidden=true; $('home').hidden=false; renderVocabHome(); window.scrollTo({top:0}); }
+$('vocabStart').addEventListener('click', startVocabSession);
+$('vocabBack').addEventListener('click', backFromVocab);
+
 function renderHome(){
   $('homeDate').textContent = 'JLPT N2 ・ ' + hkDate().replace(/-/g,'.') + ' ・ 言語知識＋読解';
   const cfg = getCfg();
@@ -981,6 +1134,7 @@ function showResult(){
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && cur && !$('test').hidden) tick(); });
 renderHome();
 loadBank();
+loadWords();
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 window.addEventListener('online', ()=>{ $('genErr').hidden = true; });
 })();
