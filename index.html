@@ -109,6 +109,7 @@ body.nofuri .exp:not(.furi-on) rt{display:none}
 .row.link{cursor:pointer}
 .delbtn{font:inherit;font-size:13px;margin-right:8px;padding:2px 8px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;-webkit-appearance:none}
 .delbtn.armed{border-color:var(--red);color:var(--red);font-weight:700}
+.btn.armed{background:var(--red);border-color:var(--red);color:#fff}
 .row.link:hover{color:var(--accent)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chip{font-size:13px;padding:2px 10px;border-radius:999px;background:var(--red-soft);color:var(--red)}
@@ -177,6 +178,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
     <h3>📘 單字 <span id="vocabCount"></span></h3>
     <p class="note" id="vocabInfo" style="margin:0 0 10px">読み込み中…</p>
     <button class="btn" id="vocabStart" hidden>🧠 記單字（フラッシュカード）</button>
+    <button class="btn ghost small" id="vocabReset" hidden style="margin-top:8px">🗑 記錄をリセット</button>
     <details id="vocabList" style="margin-top:10px"><summary class="note" style="cursor:pointer">全部の単語を見る</summary>
       <input class="t" id="vocabSearch" type="search" placeholder="検索（単語で絞り込み）" style="margin-top:8px">
       <div class="vwrap" id="vocabRows"></div>
@@ -290,7 +292,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
 const $ = id => document.getElementById(id);
 const GRAMMAR = JSON.parse($('grammar-data').textContent);
 const VOCAB = JSON.parse($('vocab-data').textContent);
-const K = {cfg:'n2a.cfg', furi:'n2a.furi', waste:'n2a.waste', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.', words:'n2a.words'};
+const K = {cfg:'n2a.cfg', furi:'n2a.furi', waste:'n2a.waste', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.', words:'n2a.words', vsess:'n2a.vsess'};
 
 /* ---------- storage helpers ---------- */
 const mem = {};
@@ -358,9 +360,14 @@ function renderBank(){
   if(next){ $('bankNext').textContent = '▶ 次の未受験を開く（'+next.title+'）'; $('bankNext').onclick = ()=>openTest(next.id); }
 }
 /* ---------- VOCAB (flashcards) ---------- */
-let WORDS = null, wordsErr = false;
+let WORDS = null, wordsErr = false, WORDS_BY_ID = {};
+const VOCAB_BATCH = 80;
 async function loadWords(){
-  try{ const r = await fetch('words.json'); if(!r.ok) throw new Error(r.status); WORDS = await r.json(); }
+  try{
+    const r = await fetch('words.json'); if(!r.ok) throw new Error(r.status);
+    WORDS = await r.json();
+    WORDS_BY_ID = {}; WORDS.words.forEach(w=>{ WORDS_BY_ID[w.id] = w; });
+  }
   catch(e){ wordsErr = true; }
   renderVocabHome();
 }
@@ -376,11 +383,19 @@ function rateWord(id, good){
   all[id] = s;
   lsSet(K.words, all);
 }
+function resetWordState(id){ const all = getWordStates(); delete all[id]; lsSet(K.words, all); }
+function resetAllWordStates(){ lsDel(K.words); }
 function dueWords(){
   if(!WORDS) return [];
   const now = Date.now();
   return WORDS.words.filter(w=>wordState(w.id).due<=now);
 }
+function saveVocabSession(){
+  if(!VS) return;
+  lsSet(K.vsess, {ids: VS.queue.map(w=>w.id), idx: VS.idx, good: VS.good});
+}
+function loadVocabSession(){ return lsGet(K.vsess, null); }
+function clearVocabSession(){ lsDel(K.vsess); }
 function renderVocabHome(){
   if(!WORDS){ $('vocabInfo').textContent = wordsErr ? '単語ファイル（words.json）が見つかりません。' : '読み込み中…'; return; }
   const due = dueWords();
@@ -388,9 +403,29 @@ function renderVocabHome(){
   $('vocabCount').textContent = WORDS.words.length+'語';
   $('vocabInfo').textContent = '今日の復習：'+due.length+'語　・　覚えた語：'+mastered+' / '+WORDS.words.length;
   $('vocabStart').hidden = false;
-  $('vocabStart').textContent = due.length ? '🧠 記單字（'+Math.min(due.length,30)+'語）' : '🧠 記單字（ランダム練習）';
+  const saved = loadVocabSession();
+  if(saved && saved.ids && saved.idx < saved.ids.length && saved.ids.some(id=>WORDS_BY_ID[id])){
+    $('vocabStart').textContent = '▶️ 続ける（'+(saved.idx+1)+' / '+saved.ids.length+'）';
+    $('vocabStart').onclick = resumeVocabSession;
+  } else {
+    $('vocabStart').textContent = due.length ? '🧠 記單字（'+Math.min(due.length,VOCAB_BATCH)+'語）' : '🧠 記單字（ランダム練習）';
+    $('vocabStart').onclick = startVocabSession;
+  }
+  $('vocabReset').hidden = !Object.keys(getWordStates()).length;
   buildVocabList();
 }
+let vocabResetArmed = false;
+$('vocabReset').addEventListener('click', ()=>{
+  if(!vocabResetArmed){
+    vocabResetArmed = true; $('vocabReset').textContent = '🗑 本当にリセットする？（もう一度タップ）'; $('vocabReset').classList.add('armed');
+    setTimeout(()=>{ vocabResetArmed=false; $('vocabReset').textContent='🗑 記錄をリセット'; $('vocabReset').classList.remove('armed'); }, 4000);
+    return;
+  }
+  resetAllWordStates(); clearVocabSession();
+  vocabResetArmed = false; $('vocabReset').textContent='🗑 記錄をリセット'; $('vocabReset').classList.remove('armed');
+  vocabListBuilt = false; $('vocabRows').innerHTML = '';
+  renderVocabHome();
+});
 function rubyOf(w){
   return w.r ? '<ruby>'+esc(w.w)+'<rt>'+esc(w.r)+'</rt></ruby>' : esc(w.w);
 }
@@ -415,8 +450,16 @@ function buildVocabList(){
   const frag = document.createDocumentFragment();
   WORDS.words.forEach(w=>{
     const row = document.createElement('div'); row.className='vrow'; row.dataset.w = w.w;
-    row.innerHTML = '<span class="w">'+rubyOf(w)+'</span><span class="vcat">'+esc(w.lv||w.cat)+'</span><div class="exp" hidden></div>';
-    row.addEventListener('click', ()=>{
+    const st = wordState(w.id);
+    row.innerHTML = '<span class="w">'+rubyOf(w)+'</span>'+
+      '<span style="display:flex;align-items:center;gap:6px">'+
+        (st.box>0 ? '<button type="button" class="delbtn" data-reset="1" title="学習記録をリセット">↺'+st.box+'</button>' : '')+
+        '<span class="vcat">'+esc(w.lv||w.cat)+'</span>'+
+      '</span>'+
+      '<div class="exp" hidden></div>';
+    row.addEventListener('click', ev=>{
+      const rb = ev.target.closest('[data-reset]');
+      if(rb){ ev.stopPropagation(); resetWordState(w.id); rb.remove(); $('vocabReset').hidden = !Object.keys(getWordStates()).length; return; }
       const ex = row.querySelector('.exp');
       if(!ex.innerHTML) ex.innerHTML = wordBack(w);
       row.classList.toggle('open'); ex.hidden = !row.classList.contains('open');
@@ -433,13 +476,24 @@ let VS = null;
 function startVocabSession(){
   if(!WORDS || !WORDS.words.length) return;
   let pool = dueWords();
-  if(!pool.length){ pool = pick(WORDS.words.filter(w=>wordState(w.id).box<SRS_DAYS.length-1), 30); if(!pool.length) pool = pick(WORDS.words, 20); }
-  VS = {queue: pick(pool, Math.min(pool.length, 30)), idx:0, good:0};
+  if(!pool.length){ pool = pick(WORDS.words.filter(w=>wordState(w.id).box<SRS_DAYS.length-1), VOCAB_BATCH); if(!pool.length) pool = pick(WORDS.words, VOCAB_BATCH); }
+  VS = {queue: pick(pool, Math.min(pool.length, VOCAB_BATCH)), idx:0, good:0};
+  $('home').hidden = true; $('vocab').hidden = false; window.scrollTo({top:0});
+  $('vdone').hidden = true; $('vcard').hidden = false;
+  showVocabCard();
+}
+function resumeVocabSession(){
+  const saved = loadVocabSession();
+  if(!saved){ startVocabSession(); return; }
+  const queue = saved.ids.map(id=>WORDS_BY_ID[id]).filter(Boolean);
+  if(!queue.length){ startVocabSession(); return; }
+  VS = {queue, idx: Math.min(saved.idx, queue.length-1), good: saved.good||0};
   $('home').hidden = true; $('vocab').hidden = false; window.scrollTo({top:0});
   $('vdone').hidden = true; $('vcard').hidden = false;
   showVocabCard();
 }
 function showVocabCard(){
+  saveVocabSession();
   $('vcount').textContent = (VS.idx+1)+' / '+VS.queue.length;
   $('vprogbar').style.width = (VS.idx/VS.queue.length*100)+'%';
   const w = VS.queue[VS.idx];
@@ -459,14 +513,14 @@ function vocabNext(w, good){
   showVocabCard();
 }
 function finishVocab(){
+  clearVocabSession();
   $('vprogbar').style.width='100%'; $('vcount').textContent = VS.queue.length+' / '+VS.queue.length;
   $('vcard').hidden = true; $('vdone').hidden = false;
   $('vdone').innerHTML = '<div class="vdone"><div class="big">🎉</div><p>'+VS.queue.length+'語を復習しました（覚えてた：'+VS.good+'語）</p><button class="btn" id="vagain">もう一度</button><button class="btn ghost" id="vback" style="margin-top:8px">← ホームへ</button></div>';
   $('vagain').addEventListener('click', startVocabSession);
   $('vback').addEventListener('click', backFromVocab);
 }
-function backFromVocab(){ $('vocab').hidden=true; $('home').hidden=false; renderVocabHome(); window.scrollTo({top:0}); }
-$('vocabStart').addEventListener('click', startVocabSession);
+function backFromVocab(){ $('vocab').hidden=true; $('home').hidden=false; vocabListBuilt=false; $('vocabRows').innerHTML=''; renderVocabHome(); window.scrollTo({top:0}); }
 $('vocabBack').addEventListener('click', backFromVocab);
 
 function renderHome(){
