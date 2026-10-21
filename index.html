@@ -549,9 +549,23 @@ function renderHome(){
     del.addEventListener('click', ev=>{
       ev.stopPropagation();
       if(!armed){ armed = true; del.textContent='削除する？'; del.classList.add('armed'); setTimeout(()=>{ armed=false; del.textContent='🗑'; del.classList.remove('armed'); }, 4000); return; }
-      lsSet(K.tests, getTests().filter(x=>x.id!==t.id)); lsDel(K.st+t.id); renderHome();
+      lsSet(K.tests, getTests().filter(x=>x.id!==t.id)); lsDel(K.st+t.id);
+      lsSet(K.results, getResults().filter(x=>x.testId!==t.id));
+      renderHome();
     });
     div.lastElementChild.prepend(del);
+    if(r || (st && st.started)){
+      const rst = document.createElement('button'); rst.type='button'; rst.className='delbtn'; rst.textContent='🔄'; rst.setAttribute('aria-label','この受験記録をリセット');
+      let rarmed = false;
+      rst.addEventListener('click', ev=>{
+        ev.stopPropagation();
+        if(!rarmed){ rarmed = true; rst.textContent='リセットする？'; rst.classList.add('armed'); setTimeout(()=>{ rarmed=false; rst.textContent='🔄'; rst.classList.remove('armed'); }, 4000); return; }
+        lsDel(K.st+t.id);
+        lsSet(K.results, getResults().filter(x=>x.testId!==t.id));
+        renderHome();
+      });
+      div.lastElementChild.prepend(rst);
+    }
     $('testRows').appendChild(div);
   });
   const month = hkDate().slice(0,7);
