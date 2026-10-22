@@ -358,6 +358,18 @@ function renderBank(){
     const div = document.createElement('div'); div.className='row link';
     div.innerHTML = '<span>'+t.title+(t.topic?' <span class="note">'+esc(t.topic)+'</span>':'')+'</span><span>'+s.label+' ›</span>';
     div.addEventListener('click',()=>openTest(t.id));
+    if(s.r || (s.st && s.st.started)){
+      const rst = document.createElement('button'); rst.type='button'; rst.className='delbtn'; rst.textContent='🔄'; rst.setAttribute('aria-label','この受験記録をリセット');
+      let rarmed = false;
+      rst.addEventListener('click', ev=>{
+        ev.stopPropagation();
+        if(!rarmed){ rarmed = true; rst.textContent='リセットする？'; rst.classList.add('armed'); setTimeout(()=>{ rarmed=false; rst.textContent='🔄'; rst.classList.remove('armed'); }, 4000); return; }
+        lsDel(K.st+t.id);
+        lsSet(K.results, getResults().filter(x=>x.testId!==t.id));
+        renderBank();
+      });
+      div.lastElementChild.prepend(rst);
+    }
     $('bankRows').appendChild(div);
   });
   $('bankCount').textContent = list.length+'回分';
@@ -435,29 +447,11 @@ $('vocabReset').addEventListener('click', ()=>{
 function rubyOf(w){
   return w.r ? '<ruby>'+esc(w.w)+'<rt>'+esc(w.r)+'</rt></ruby>' : esc(w.w);
 }
-function speakBtn(text, title){
-  return text ? '<button type="button" class="delbtn" data-speak="'+esc(text)+'" title="'+esc(title||'発音を聞く')+'">🔊</button>' : '';
-}
-function speakJa(text){
-  try{
-    if(!('speechSynthesis' in window) || !text) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ja-JP';
-    window.speechSynthesis.speak(u);
-  }catch(e){}
-}
-function stripTags(html){ return String(html).replace(/<[^>]+>/g,''); }
-document.addEventListener('click', ev=>{
-  const btn = ev.target.closest('[data-speak]');
-  if(!btn) return;
-  speakJa(btn.dataset.speak);
-});
 function wordBack(w){
-  if(w.src==='quiz') return '正解：<b>'+rubyOf(w)+'</b> '+speakBtn(w.o[w.a])+'<div class="tblwrap">'+w.e+'</div>';
-  return '<div class="fans">'+rubyOf(w)+' '+speakBtn(w.w)+'　<span class="vcat">'+esc(w.pos)+'</span> <span class="vcat">'+esc(w.lv)+'</span></div>'+
+  if(w.src==='quiz') return '正解：<b>'+rubyOf(w)+'</b><div class="tblwrap">'+w.e+'</div>';
+  return '<div class="fans">'+rubyOf(w)+'　<span class="vcat">'+esc(w.pos)+'</span> <span class="vcat">'+esc(w.lv)+'</span></div>'+
     '<div>🇭🇰 '+esc(w.hk)+'</div>'+
-    (w.ex ? '<div style="margin-top:6px">例：'+(w.exr||esc(w.ex))+' '+speakBtn(w.ex,'例文の発音を聞く')+'</div>' : '')+
+    (w.ex ? '<div style="margin-top:6px">例：'+(w.exr||esc(w.ex))+'</div>' : '')+
     (w.rel ? '<div class="note" style="margin-top:6px">類/対：'+esc(w.rel)+'</div>' : '')+
     (w.note ? '<div class="note" style="margin-top:4px">💡 '+esc(w.note)+'</div>' : '');
 }
@@ -478,13 +472,11 @@ function buildVocabList(){
     const st = wordState(w.id);
     row.innerHTML = '<span class="w">'+rubyOf(w)+'</span>'+
       '<span style="display:flex;align-items:center;gap:6px">'+
-        speakBtn(w.w)+
         (st.box>0 ? '<button type="button" class="delbtn" data-reset="1" title="学習記録をリセット">↺'+st.box+'</button>' : '')+
         '<span class="vcat">'+esc(w.lv||w.cat)+'</span>'+
       '</span>'+
       '<div class="exp" hidden></div>';
     row.addEventListener('click', ev=>{
-      if(ev.target.closest('[data-speak]')) return;
       const rb = ev.target.closest('[data-reset]');
       if(rb){ ev.stopPropagation(); resetWordState(w.id); rb.remove(); $('vocabReset').hidden = !Object.keys(getWordStates()).length; return; }
       const ex = row.querySelector('.exp');
