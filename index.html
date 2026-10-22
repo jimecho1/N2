@@ -280,6 +280,12 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
   <div id="vdone" hidden></div>
 </div>
 
+<!-- ============ VOCAB ARTICLE (AI練習文章) ============ -->
+<div id="vocabArticle" hidden>
+  <div class="bar"><button class="btn ghost small" id="vaBack">← 戻る</button></div>
+  <div id="vaBody" style="margin-top:12px"></div>
+</div>
+
 </div>
 
 <script id="grammar-data" type="application/json">[{"day": 1, "theme": "時間①：之前・之際・剛好・逐漸", "items": ["折（に/には）、折から", "にあたって、にあたり", "に際し（て/ては/ての）", "に先立ち、に先立つ、に先立って", "次第", "か〜ないかのうちに", "かと思うと、かと思ったら", "と思うと、と思ったら", "ないうちに", "つつある"]}, {"day": 2, "theme": "時間②：經過・結果・契機", "items": ["あげく（に/の）", "末（に/の）", "上で（の）", "上は", "以上（は）", "たところが", "きり〜ない", "をきっかけに（して）、をきっかけとして", "を契機として、を契機に（して）", "次第です"]}, {"day": 3, "theme": "原因・理由", "items": ["からこそ", "ことから", "ばかりに", "だけに", "あまり（に）", "につけ（て）、につけても", "のももっともだ、のはもっともだ", "ことだから", "からといって", "だけあって"]}, {"day": 4, "theme": "逆接・對比①", "items": ["一方（で）", "ながら（も）", "つつ（も）", "ものの", "にもかかわらず", "くせして", "どころか", "とは限らない", "というものではない、というものでもない", "だけましだ"]}, {"day": 5, "theme": "不論・撇開・限定", "items": ["はともかく（として）", "はまだしも、ならまだしも", "にかかわらず", "を問わず、は問わず", "もかまわず", "にせよ、にもせよ", "にしろ", "どころではない", "に限って、に限り", "にかけては"]}, {"day": 6, "theme": "條件・依據・對應", "items": ["限り", "限り（は/では）", "ない限り", "ないことには", "てこそ", "ものなら", "次第だ、次第で（は）", "に応じて", "にしたがって、にしたがい", "に沿って、に沿い、に沿う、に沿った"]}, {"day": 7, "theme": "可能・不可能・意志", "items": ["得る", "がたい", "かねる", "かねない", "っこない", "そうにない、そうもない", "まい", "か〜まいか", "抜く", "うではないか、ようではないか"]}, {"day": 8, "theme": "義務・不得不・忍不住", "items": ["ざるを得ない", "ずにはいられない", "ないではいられない", "ねばならない、ねばならぬ", "てはならない", "べきではない", "て（は）いられない、てられない、てらんない", "てばかりはいられない、てばかりもいられない", "どうにか（なんとか、もう少し）〜ないもの（だろう）か", "てまで、までして"]}, {"day": 9, "theme": "斷定・推測・評價", "items": ["に相違ない", "にほかならない", "にすぎない", "かのようだ", "というものだ", "ものがある", "ものだ", "も同然だ", "だけのことはある、だけある", "ほどだ、ほどの"]}, {"day": 10, "theme": "程度・樣態・狀態", "items": ["ほど〜はない", "まま", "まま（に）", "ぶり、っぷり", "げ", "こと（も）なく", "抜きで、抜きに、抜きの、抜きには、抜きでは", "を抜きにして（は/も）、は抜きにして", "やら〜やら", "も〜ば〜も、も〜なら〜も"]}, {"day": 11, "theme": "立場・視點・基準", "items": ["からして", "からすれば、からすると", "から見ると、から見れば、から見て（も）", "にしたら、にすれば、にしてみたら、にしてみれば", "の上では", "上（は/では/の/も）", "をもとに（して/した）", "を〜として、を〜とする、を〜とした", "を頼りに、を頼りとして、を頼りにして", "のもとで、のもとに"]}, {"day": 12, "theme": "關聯・附加・提示", "items": ["にこたえて、にこたえ、にこたえる", "にかかわって、にかかわり、にかかわる", "を巡って（は）、を巡る", "にて、でもって", "だけでなく", "のみならず", "上（に）", "といえば、といったら", "というと、っていうと", "ことに（は）"]}, {"day": 13, "theme": "情感・程度＋總複習", "items": ["かいがある、かいがあって", "がい", "て（で）かなわない", "て（で）しかたがない、て（で）しょうがない、て（で）しようがない", "て当然だ、で当たり前だ", "ばかりだ"]}]</script>
@@ -429,11 +435,29 @@ $('vocabReset').addEventListener('click', ()=>{
 function rubyOf(w){
   return w.r ? '<ruby>'+esc(w.w)+'<rt>'+esc(w.r)+'</rt></ruby>' : esc(w.w);
 }
+function speakBtn(text, title){
+  return text ? '<button type="button" class="delbtn" data-speak="'+esc(text)+'" title="'+esc(title||'発音を聞く')+'">🔊</button>' : '';
+}
+function speakJa(text){
+  try{
+    if(!('speechSynthesis' in window) || !text) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP';
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function stripTags(html){ return String(html).replace(/<[^>]+>/g,''); }
+document.addEventListener('click', ev=>{
+  const btn = ev.target.closest('[data-speak]');
+  if(!btn) return;
+  speakJa(btn.dataset.speak);
+});
 function wordBack(w){
-  if(w.src==='quiz') return '正解：<b>'+rubyOf(w)+'</b><div class="tblwrap">'+w.e+'</div>';
-  return '<div class="fans">'+rubyOf(w)+'　<span class="vcat">'+esc(w.pos)+'</span> <span class="vcat">'+esc(w.lv)+'</span></div>'+
+  if(w.src==='quiz') return '正解：<b>'+rubyOf(w)+'</b> '+speakBtn(w.o[w.a])+'<div class="tblwrap">'+w.e+'</div>';
+  return '<div class="fans">'+rubyOf(w)+' '+speakBtn(w.w)+'　<span class="vcat">'+esc(w.pos)+'</span> <span class="vcat">'+esc(w.lv)+'</span></div>'+
     '<div>🇭🇰 '+esc(w.hk)+'</div>'+
-    (w.ex ? '<div style="margin-top:6px">例：'+(w.exr||esc(w.ex))+'</div>' : '')+
+    (w.ex ? '<div style="margin-top:6px">例：'+(w.exr||esc(w.ex))+' '+speakBtn(w.ex,'例文の発音を聞く')+'</div>' : '')+
     (w.rel ? '<div class="note" style="margin-top:6px">類/対：'+esc(w.rel)+'</div>' : '')+
     (w.note ? '<div class="note" style="margin-top:4px">💡 '+esc(w.note)+'</div>' : '');
 }
@@ -454,11 +478,13 @@ function buildVocabList(){
     const st = wordState(w.id);
     row.innerHTML = '<span class="w">'+rubyOf(w)+'</span>'+
       '<span style="display:flex;align-items:center;gap:6px">'+
+        speakBtn(w.w)+
         (st.box>0 ? '<button type="button" class="delbtn" data-reset="1" title="学習記録をリセット">↺'+st.box+'</button>' : '')+
         '<span class="vcat">'+esc(w.lv||w.cat)+'</span>'+
       '</span>'+
       '<div class="exp" hidden></div>';
     row.addEventListener('click', ev=>{
+      if(ev.target.closest('[data-speak]')) return;
       const rb = ev.target.closest('[data-reset]');
       if(rb){ ev.stopPropagation(); resetWordState(w.id); rb.remove(); $('vocabReset').hidden = !Object.keys(getWordStates()).length; return; }
       const ex = row.querySelector('.exp');
@@ -499,13 +525,20 @@ function showVocabCard(){
   $('vprogbar').style.width = (VS.idx/VS.queue.length*100)+'%';
   const w = VS.queue[VS.idx];
   const card = $('vcard');
-  card.innerHTML = '<div class="flash"><span class="vcat">'+esc(w.cat)+'</span><div class="fword">'+frontWord(w)+'</div>'+
+  card.innerHTML = (VS.idx>0 ? '<button type="button" class="btn ghost small" id="vprev">⬅ 前の単語</button>' : '')+
+    '<div class="flash"><span class="vcat">'+esc(w.cat)+'</span><div class="fword">'+frontWord(w)+'</div>'+
     '<div class="fback" hidden>'+wordBack(w)+'</div>'+
     '<button class="btn" id="vshow">👀 答えを見る</button>'+
     '<div class="rate" id="vrate" hidden><button type="button" class="bad" id="vbad">😵 忘れた</button><button type="button" class="good" id="vgood">😎 覚えてた</button></div></div>';
+  if(VS.idx>0) $('vprev').addEventListener('click', vocabPrev);
   $('vshow').addEventListener('click', ()=>{ card.querySelector('.fback').hidden=false; $('vshow').hidden=true; $('vrate').hidden=false; });
   $('vbad').addEventListener('click', ()=>vocabNext(w,false));
   $('vgood').addEventListener('click', ()=>vocabNext(w,true));
+}
+function vocabPrev(){
+  if(!VS || VS.idx<=0) return;
+  VS.idx--;
+  showVocabCard();
 }
 function vocabNext(w, good){
   rateWord(w.id, good); if(good) VS.good++;
@@ -513,16 +546,71 @@ function vocabNext(w, good){
   if(VS.idx>=VS.queue.length){ finishVocab(); return; }
   showVocabCard();
 }
+let lastSessionWords = [];
 function finishVocab(){
+  lastSessionWords = VS.queue.slice();
   clearVocabSession();
   $('vprogbar').style.width='100%'; $('vcount').textContent = VS.queue.length+' / '+VS.queue.length;
   $('vcard').hidden = true; $('vdone').hidden = false;
-  $('vdone').innerHTML = '<div class="vdone"><div class="big">🎉</div><p>'+VS.queue.length+'語を復習しました（覚えてた：'+VS.good+'語）</p><button class="btn" id="vagain">もう一度</button><button class="btn ghost" id="vback" style="margin-top:8px">← ホームへ</button></div>';
+  $('vdone').innerHTML = '<div class="vdone"><div class="big">🎉</div><p>'+VS.queue.length+'語を復習しました（覚えてた：'+VS.good+'語）</p>'+
+    '<button class="btn" id="vagain">もう一度</button>'+
+    '<button class="btn ghost" id="vaBtn" style="margin-top:8px">📝 この語彙で練習文章を作る</button>'+
+    '<p class="note" id="vaStatus" hidden style="margin-top:8px"></p>'+
+    '<button class="btn ghost" id="vback" style="margin-top:8px">← ホームへ</button></div>';
   $('vagain').addEventListener('click', startVocabSession);
+  $('vaBtn').addEventListener('click', generateVocabArticle);
   $('vback').addEventListener('click', backFromVocab);
 }
 function backFromVocab(){ $('vocab').hidden=true; $('home').hidden=false; vocabListBuilt=false; $('vocabRows').innerHTML=''; renderVocabHome(); window.scrollTo({top:0}); }
 $('vocabBack').addEventListener('click', backFromVocab);
+
+/* ---------- VOCAB -> AI練習文章 (reuses the mock-test LLM config) ---------- */
+let vocabArticle = null;
+async function generateVocabArticle(){
+  if(navigator.onLine===false){ $('vaStatus').hidden=false; $('vaStatus').textContent = '📴 オフラインです。ネットに繋いでからもう一度。'; return; }
+  const cfg = getCfg();
+  if(!cfg.key || !cfg.base || !cfg.model){ backFromVocab(); $('setBox').open = true; $('keyHint').hidden=false; $('keyIn').focus(); return; }
+  const words = lastSessionWords.map(w=>w.w).filter(Boolean);
+  if(!words.length) return;
+  $('vaBtn').disabled = true; $('vaStatus').hidden = false; $('vaStatus').textContent = '✍️ 生成中…（数十秒かかります）';
+  const usage = {in:0,out:0};
+  try{
+    const system = 'あなたはJLPT教材作成者です。出力は必ずJSONのみ、説明文やコードブロックは付けないでください。';
+    const user = '次の日本語の単語をできるだけ多く、自然な流れで使って、200〜350字程度の日本語の短い文章（ストーリー・日記・ニュース風など、テーマは自由）を書いてください。文章中で実際に使った単語は<b>タグ</b>で囲んでください（読み方の注釈は不要）。そのあと、文章の内容についての4択問題を3問作ってください。\n\n単語リスト：'+words.join('、')+
+      '\n\n出力は次のJSON形式のみ：\n{"title":"（短いタイトル）","text":"（本文、<b>タグ</b>可、ふりがな不要）","qs":[{"q":"問題文","o":["選択肢1","選択肢2","選択肢3","選択肢4"],"a":0,"e":"簡単な解説"}]}\n（qsは3問。a は0始まりの正解インデックス）';
+    const txt = await callChat(cfg, system, user, ()=>{}, undefined, 4000, usage);
+    const raw = parseLooseJSON(txt);
+    if(!raw.text || !Array.isArray(raw.qs) || !raw.qs.length || !raw.qs.every(checkQ)) throw new Error('形式エラー：もう一度お試しください');
+    vocabArticle = raw;
+    renderVocabArticle();
+  }catch(e){
+    $('vaStatus').hidden = false; $('vaStatus').textContent = '❌ '+e.message;
+  }finally{
+    $('vaBtn').disabled = false;
+  }
+}
+function renderVocabArticle(){
+  if(!vocabArticle) return;
+  const a = vocabArticle;
+  $('vaBody').innerHTML = '<h1 style="margin-bottom:10px">'+esc(a.title||'練習文章')+'</h1>'+
+    '<div class="tblwrap" style="line-height:1.9;margin-bottom:16px">'+a.text+'</div>'+
+    a.qs.map((q,i)=>'<div class="card" style="margin-bottom:10px"><b>Q'+(i+1)+'.</b> '+esc(q.q)+
+      '<div style="margin-top:8px">'+q.o.map((o,j)=>'<div class="row link vaopt" data-idx="'+j+'" data-correct="'+(j===q.a?1:0)+'" style="cursor:pointer"><span>'+(j+1)+'. '+esc(o)+'</span></div>').join('')+'</div>'+
+      '<div class="note vaexp" hidden style="margin-top:8px">💡 '+esc(q.e||'')+'</div>'+
+      '</div>').join('');
+  $('vdone').hidden = true; $('vocabArticle').hidden = false; window.scrollTo({top:0});
+}
+$('vaBody').addEventListener('click', ev=>{
+  const opt = ev.target.closest('.vaopt');
+  if(!opt) return;
+  const group = opt.parentElement;
+  group.querySelectorAll('.vaopt').forEach(o=>{
+    o.style.background = o.dataset.correct==='1' ? 'var(--good-soft, #e6f7ea)' : (o===opt ? 'var(--bad-soft, #fde8e8)' : '');
+  });
+  const exp = group.nextElementSibling;
+  if(exp && exp.classList.contains('vaexp')) exp.hidden = false;
+});
+$('vaBack').addEventListener('click', ()=>{ $('vocabArticle').hidden=true; $('vdone').hidden=false; });
 
 function renderHome(){
   $('homeDate').textContent = 'JLPT N2 ・ ' + hkDate().replace(/-/g,'.') + ' ・ 言語知識＋読解';
@@ -1207,7 +1295,13 @@ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && cur &
 renderHome();
 loadBank();
 loadWords();
-if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  let swRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(swRefreshing) return; swRefreshing = true; location.reload();
+  });
+}
 window.addEventListener('online', ()=>{ $('genErr').hidden = true; });
 })();
 </script>
