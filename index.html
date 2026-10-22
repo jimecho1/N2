@@ -439,6 +439,7 @@ function wordBack(w){
 }
 function frontWord(w){
   if(w.src==='quiz') return w.q;
+  if(w.exrFront) return w.exrFront;
   if(w.exr) return w.exr;
   if(w.ex && w.ex.includes(w.w)) return esc(w.ex).replace(esc(w.w), '<u>'+esc(w.w)+'</u>');
   return '<u>'+esc(w.w)+'</u>';
