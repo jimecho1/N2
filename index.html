@@ -185,6 +185,14 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
     </details>
   </div>
 
+  <div class="card" id="vaHomeCard" hidden>
+    <h3>📝 單字練習文章</h3>
+    <p class="note" style="margin:0 0 10px">AIで、今の記憶状況に合わせた80語の短文練習を作ります。</p>
+    <button class="btn" id="vaHomeBtn">✨ 新しい練習文章を作る</button>
+    <p class="note" id="vaHomeStatus" hidden style="margin-top:8px"></p>
+    <div class="rows" id="vaHomeRows" style="margin-top:10px"></div>
+  </div>
+
   <div class="card" id="testsCard" hidden>
     <h3>テスト一覧</h3>
     <div class="rows" id="testRows"></div>
@@ -298,7 +306,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
 const $ = id => document.getElementById(id);
 const GRAMMAR = JSON.parse($('grammar-data').textContent);
 const VOCAB = JSON.parse($('vocab-data').textContent);
-const K = {cfg:'n2a.cfg', furi:'n2a.furi', waste:'n2a.waste', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.', words:'n2a.words', vsess:'n2a.vsess'};
+const K = {cfg:'n2a.cfg', furi:'n2a.furi', waste:'n2a.waste', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.', words:'n2a.words', vsess:'n2a.vsess', vart:'n2a.vart'};
 
 /* ---------- storage helpers ---------- */
 const mem = {};
@@ -431,6 +439,7 @@ function renderVocabHome(){
   }
   $('vocabReset').hidden = !Object.keys(getWordStates()).length;
   buildVocabList();
+  renderVocabArtHome();
 }
 let vocabResetArmed = false;
 $('vocabReset').addEventListener('click', ()=>{
@@ -538,59 +547,105 @@ function vocabNext(w, good){
   if(VS.idx>=VS.queue.length){ finishVocab(); return; }
   showVocabCard();
 }
-let lastSessionWords = [];
 function finishVocab(){
-  lastSessionWords = VS.queue.slice();
   clearVocabSession();
   $('vprogbar').style.width='100%'; $('vcount').textContent = VS.queue.length+' / '+VS.queue.length;
   $('vcard').hidden = true; $('vdone').hidden = false;
   $('vdone').innerHTML = '<div class="vdone"><div class="big">🎉</div><p>'+VS.queue.length+'語を復習しました（覚えてた：'+VS.good+'語）</p>'+
     '<button class="btn" id="vagain">もう一度</button>'+
-    '<button class="btn ghost" id="vaBtn" style="margin-top:8px">📝 この語彙で練習文章を作る</button>'+
-    '<p class="note" id="vaStatus" hidden style="margin-top:8px"></p>'+
     '<button class="btn ghost" id="vback" style="margin-top:8px">← ホームへ</button></div>';
   $('vagain').addEventListener('click', startVocabSession);
-  $('vaBtn').addEventListener('click', generateVocabArticle);
   $('vback').addEventListener('click', backFromVocab);
 }
 function backFromVocab(){ $('vocab').hidden=true; $('home').hidden=false; vocabListBuilt=false; $('vocabRows').innerHTML=''; renderVocabHome(); window.scrollTo({top:0}); }
 $('vocabBack').addEventListener('click', backFromVocab);
 
-/* ---------- VOCAB -> AI練習文章 (reuses the mock-test LLM config) ---------- */
-let vocabArticle = null;
+/* ---------- 單字練習文章 (AI, standalone home card, reuses the mock-test LLM
+   config) ---------- 80 distinct words can't naturally fit one short
+   passage, so this splits them into chunks (~16 each), writes one short
+   natural passage PER chunk in parallel, and has each chunk honestly report
+   back which of ITS words it actually managed to use - so the app can show
+   real coverage instead of just claiming "used them all". Generated
+   articles are saved (K.vart) so this lives as its own home-page feature,
+   independent of running a flashcard session. */
+function chunkArr(arr, n){ const out=[]; for(let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
+function pickArticleWords(){
+  if(!WORDS || !WORDS.words.length) return [];
+  let pool = dueWords();
+  if(!pool.length){ pool = pick(WORDS.words.filter(w=>wordState(w.id).box<SRS_DAYS.length-1), VOCAB_BATCH); if(!pool.length) pool = pick(WORDS.words, VOCAB_BATCH); }
+  return pick(pool, Math.min(pool.length, VOCAB_BATCH)).map(w=>w.w);
+}
+function getVocabArts(){ return lsGet(K.vart, []); }
+function renderVocabArtHome(){
+  $('vaHomeCard').hidden = !WORDS;
+  const arts = getVocabArts();
+  $('vaHomeRows').innerHTML = '';
+  arts.forEach(a=>{
+    const usedSet = new Set(a.sections.flatMap(s=>s.used));
+    const div = document.createElement('div'); div.className = 'row link';
+    div.innerHTML = '<span>'+new Date(a.at).toLocaleDateString('ja-JP')+' <span class="note">使用 '+usedSet.size+' / '+a.allWords.length+'語</span></span><span>›</span>';
+    div.addEventListener('click', ()=>renderVocabArticle(a));
+    const del = document.createElement('button'); del.type='button'; del.className='delbtn'; del.textContent='🗑'; del.setAttribute('aria-label','この練習文章を削除');
+    let armed = false;
+    del.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      if(!armed){ armed=true; del.textContent='削除する？'; del.classList.add('armed'); setTimeout(()=>{ armed=false; del.textContent='🗑'; del.classList.remove('armed'); }, 4000); return; }
+      lsSet(K.vart, getVocabArts().filter(x=>x.id!==a.id)); renderVocabArtHome();
+    });
+    div.lastElementChild.prepend(del);
+    $('vaHomeRows').appendChild(div);
+  });
+}
+$('vaHomeBtn').addEventListener('click', generateVocabArticle);
 async function generateVocabArticle(){
-  if(navigator.onLine===false){ $('vaStatus').hidden=false; $('vaStatus').textContent = '📴 オフラインです。ネットに繋いでからもう一度。'; return; }
+  if(navigator.onLine===false){ $('vaHomeStatus').hidden=false; $('vaHomeStatus').textContent = '📴 オフラインです。ネットに繋いでからもう一度。'; return; }
   const cfg = getCfg();
-  if(!cfg.key || !cfg.base || !cfg.model){ backFromVocab(); $('setBox').open = true; $('keyHint').hidden=false; $('keyIn').focus(); return; }
-  const words = lastSessionWords.map(w=>w.w).filter(Boolean);
-  if(!words.length) return;
-  $('vaBtn').disabled = true; $('vaStatus').hidden = false; $('vaStatus').textContent = '✍️ 生成中…（数十秒かかります）';
-  const usage = {in:0,out:0};
+  if(!cfg.key || !cfg.base || !cfg.model){ $('setBox').open = true; $('keyHint').hidden=false; $('keyIn').focus(); return; }
+  const allWords = pickArticleWords();
+  if(!allWords.length) return;
+  const groups = chunkArr(allWords, 16);
+  $('vaHomeBtn').disabled = true; $('vaHomeStatus').hidden = false;
+  const t0 = Date.now(); const usage = {in:0,out:0};
+  const tick = setInterval(()=>{ $('vaHomeStatus').textContent = '✍️ 生成中…（'+groups.length+'セクション・'+Math.round((Date.now()-t0)/1000)+'秒）'; }, 500);
   try{
     const system = 'あなたはJLPT教材作成者です。出力は必ずJSONのみ、説明文やコードブロックは付けないでください。';
-    const user = '次の日本語の単語をできるだけ多く、自然な流れで使って、200〜350字程度の日本語の短い文章（ストーリー・日記・ニュース風など、テーマは自由）を書いてください。文章中で実際に使った単語は<b>タグ</b>で囲んでください（読み方の注釈は不要）。そのあと、文章の内容についての4択問題を3問作ってください。\n\n単語リスト：'+words.join('、')+
-      '\n\n出力は次のJSON形式のみ：\n{"title":"（短いタイトル）","text":"（本文、<b>タグ</b>可、ふりがな不要）","qs":[{"q":"問題文","o":["選択肢1","選択肢2","選択肢3","選択肢4"],"a":0,"e":"簡単な解説"}]}\n（qsは3問。a は0始まりの正解インデックス）';
-    const txt = await callChat(cfg, system, user, ()=>{}, undefined, 4000, usage);
-    const raw = parseLooseJSON(txt);
-    if(!raw.text || !Array.isArray(raw.qs) || !raw.qs.length || !raw.qs.every(checkQ)) throw new Error('形式エラー：もう一度お試しください');
-    vocabArticle = raw;
-    renderVocabArticle();
+    const sections = await Promise.all(groups.map(async (gw, gi)=>{
+      const user = '次の日本語の単語リストを見て、できるだけ多く・自然な流れで使った150〜250字程度の日本語の短い文章（ストーリー・日記・ニュース風など、テーマは自由）を書いてください。すべて無理に使う必要はありません。自然さを優先してください。文章中で実際に使った単語は<b>タグ</b>で囲んでください（読み方の注釈は不要）。そのあと、文章の内容についての4択問題を2問作ってください。\n\n単語リスト：'+gw.join('、')+
+        '\n\n出力は次のJSON形式のみ：\n{"title":"（短いタイトル）","text":"（本文、<b>タグ</b>可、ふりがな不要）","used":["実際に使った単語をリストのまま書く"],"qs":[{"q":"問題文","o":["選択肢1","選択肢2","選択肢3","選択肢4"],"a":0,"e":"簡単な解説"}]}\n（qsは2問。a は0始まりの正解インデックス。used は単語リストの中から実際に文章で使った単語だけを、そのままの表記で入れる）';
+      const txt = await callChat(cfg, system, user, ()=>{}, undefined, 2000, usage);
+      const raw = parseLooseJSON(txt);
+      if(!raw.text || !Array.isArray(raw.qs) || !raw.qs.length || !raw.qs.every(checkQ)) throw new Error('セクション'+(gi+1)+'の形式エラー');
+      raw.words = gw; raw.used = Array.isArray(raw.used) ? raw.used.filter(w=>gw.includes(w)) : [];
+      return raw;
+    }));
+    const art = {id:Date.now().toString(36), at:Date.now(), allWords, sections};
+    const arts = [art].concat(getVocabArts()).slice(0,20);
+    lsSet(K.vart, arts);
+    renderVocabArtHome();
+    renderVocabArticle(art);
   }catch(e){
-    $('vaStatus').hidden = false; $('vaStatus').textContent = '❌ '+e.message;
+    $('vaHomeStatus').hidden = false; $('vaHomeStatus').textContent = '❌ '+e.message;
   }finally{
-    $('vaBtn').disabled = false;
+    clearInterval(tick);
+    $('vaHomeBtn').disabled = false;
   }
 }
-function renderVocabArticle(){
-  if(!vocabArticle) return;
-  const a = vocabArticle;
-  $('vaBody').innerHTML = '<h1 style="margin-bottom:10px">'+esc(a.title||'練習文章')+'</h1>'+
-    '<div class="tblwrap" style="line-height:1.9;margin-bottom:16px">'+a.text+'</div>'+
-    a.qs.map((q,i)=>'<div class="card" style="margin-bottom:10px"><b>Q'+(i+1)+'.</b> '+esc(q.q)+
-      '<div style="margin-top:8px">'+q.o.map((o,j)=>'<div class="row link vaopt" data-idx="'+j+'" data-correct="'+(j===q.a?1:0)+'" style="cursor:pointer"><span>'+(j+1)+'. '+esc(o)+'</span></div>').join('')+'</div>'+
-      '<div class="note vaexp" hidden style="margin-top:8px">💡 '+esc(q.e||'')+'</div>'+
-      '</div>').join('');
-  $('vdone').hidden = true; $('vocabArticle').hidden = false; window.scrollTo({top:0});
+function renderVocabArticle(a){
+  const usedSet = new Set(a.sections.flatMap(s=>s.used));
+  $('vaBody').innerHTML =
+    '<h1 style="margin-bottom:6px">練習文章</h1>'+
+    '<p class="note" style="margin-bottom:10px">使用：'+usedSet.size+' / '+a.allWords.length+'語　・　'+new Date(a.at).toLocaleString('ja-JP')+'</p>'+
+    '<details style="margin-bottom:16px"><summary class="note" style="cursor:pointer">単語リストを見る（✅使った　⚠️未使用）</summary>'+
+      '<div class="vwrap" style="margin-top:8px">'+a.allWords.map(w=>'<div class="vrow" style="cursor:default"><span class="w">'+(usedSet.has(w)?'✅ ':'⚠️ ')+esc(w)+'</span></div>').join('')+'</div>'+
+    '</details>'+
+    a.sections.map((s,si)=>'<h3 style="margin:18px 0 6px">'+esc(s.title||('セクション'+(si+1)))+'</h3>'+
+      '<div class="tblwrap" style="line-height:1.9;margin-bottom:10px">'+s.text+'</div>'+
+      s.qs.map((q,i)=>'<div class="card" style="margin-bottom:10px"><b>Q'+(si*10+i+1)+'.</b> '+esc(q.q)+
+        '<div style="margin-top:8px">'+q.o.map((o,j)=>'<div class="row link vaopt" data-idx="'+j+'" data-correct="'+(j===q.a?1:0)+'" style="cursor:pointer"><span>'+(j+1)+'. '+esc(o)+'</span></div>').join('')+'</div>'+
+        '<div class="note vaexp" hidden style="margin-top:8px">💡 '+esc(q.e||'')+'</div>'+
+        '</div>').join('')
+    ).join('');
+  $('home').hidden = true; $('vocabArticle').hidden = false; window.scrollTo({top:0});
 }
 $('vaBody').addEventListener('click', ev=>{
   const opt = ev.target.closest('.vaopt');
@@ -602,7 +657,7 @@ $('vaBody').addEventListener('click', ev=>{
   const exp = group.nextElementSibling;
   if(exp && exp.classList.contains('vaexp')) exp.hidden = false;
 });
-$('vaBack').addEventListener('click', ()=>{ $('vocabArticle').hidden=true; $('vdone').hidden=false; });
+$('vaBack').addEventListener('click', ()=>{ $('vocabArticle').hidden=true; $('home').hidden=false; });
 
 function renderHome(){
   $('homeDate').textContent = 'JLPT N2 ・ ' + hkDate().replace(/-/g,'.') + ' ・ 言語知識＋読解';
@@ -612,6 +667,8 @@ function renderHome(){
   document.body.classList.toggle('nofuri', !lsGet(K.furi, true));
   $('keyHint').hidden = !!cfg.key;
   if(!cfg.key) $('setBox').open = true;
+
+  renderVocabArtHome();
 
   const tests = getTests().slice().sort((a,b)=>b.createdAt-a.createdAt);
   const results = getResults();
