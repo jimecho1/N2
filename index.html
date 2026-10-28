@@ -185,6 +185,12 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
     </details>
   </div>
 
+  <div class="card" id="vocabHistCard" hidden>
+    <h3>📚 復習した単語セット</h3>
+    <p class="note" style="margin:0 0 10px">過去に復習した80語セットを振り返ったり、そこから練習文章を作ったりできます。</p>
+    <div class="rows" id="vocabHistRows"></div>
+  </div>
+
   <div class="card" id="vaHomeCard" hidden>
     <h3>📝 單字練習文章</h3>
     <p class="note" style="margin:0 0 10px">AIで、今の記憶状況に合わせた80語の短文練習を作ります。</p>
@@ -306,7 +312,7 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
 const $ = id => document.getElementById(id);
 const GRAMMAR = JSON.parse($('grammar-data').textContent);
 const VOCAB = JSON.parse($('vocab-data').textContent);
-const K = {cfg:'n2a.cfg', furi:'n2a.furi', waste:'n2a.waste', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.', words:'n2a.words', vsess:'n2a.vsess', vart:'n2a.vart'};
+const K = {cfg:'n2a.cfg', furi:'n2a.furi', waste:'n2a.waste', tests:'n2a.tests', results:'n2a.results', st:'n2a.state.', words:'n2a.words', vsess:'n2a.vsess', vart:'n2a.vart', vhist:'n2a.vhist'};
 
 /* ---------- storage helpers ---------- */
 const mem = {};
@@ -439,6 +445,7 @@ function renderVocabHome(){
   }
   $('vocabReset').hidden = !Object.keys(getWordStates()).length;
   buildVocabList();
+  renderVocabHistHome();
   renderVocabArtHome();
 }
 let vocabResetArmed = false;
@@ -453,6 +460,44 @@ $('vocabReset').addEventListener('click', ()=>{
   vocabListBuilt = false; $('vocabRows').innerHTML = '';
   renderVocabHome();
 });
+/* ---------- 復習した単語セットの履歴（復習完了ごとに記録。もう一度同じ80語を
+   復習したり、その80語からそのまま練習文章を作れるようにする） ---------- */
+function getVocabHist(){ return lsGet(K.vhist, []); }
+function pushVocabHist(rec){ lsSet(K.vhist, [rec].concat(getVocabHist()).slice(0,20)); }
+function wordsFromIds(ids){ return ids.map(id=>WORDS_BY_ID[id]).filter(Boolean).map(w=>w.w); }
+function renderVocabHistHome(){
+  const hist = getVocabHist();
+  $('vocabHistCard').hidden = !WORDS || !hist.length;
+  $('vocabHistRows').innerHTML = '';
+  hist.forEach(h=>{
+    const div = document.createElement('div'); div.className = 'row';
+    const left = document.createElement('span');
+    left.innerHTML = esc(new Date(h.at).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}))+' <span class="note">'+h.ids.length+'語・覚えた '+h.good+'語</span>';
+    const right = document.createElement('div'); right.style.display='flex'; right.style.gap='6px'; right.style.flexShrink='0';
+    const btnReview = document.createElement('button'); btnReview.type='button'; btnReview.className='delbtn'; btnReview.textContent='🔁 復習';
+    btnReview.addEventListener('click', ()=>reviewVocabBatch(h.ids));
+    const btnArt = document.createElement('button'); btnArt.type='button'; btnArt.className='delbtn'; btnArt.textContent='✨ 文章';
+    btnArt.addEventListener('click', ()=>generateVocabArticle(wordsFromIds(h.ids)));
+    const btnDel = document.createElement('button'); btnDel.type='button'; btnDel.className='delbtn'; btnDel.textContent='🗑'; btnDel.setAttribute('aria-label','この履歴を削除');
+    let armed = false;
+    btnDel.addEventListener('click', ()=>{
+      if(!armed){ armed=true; btnDel.textContent='削除する？'; btnDel.classList.add('armed'); setTimeout(()=>{ armed=false; btnDel.textContent='🗑'; btnDel.classList.remove('armed'); }, 4000); return; }
+      lsSet(K.vhist, getVocabHist().filter(x=>x.id!==h.id));
+      renderVocabHistHome();
+    });
+    right.appendChild(btnReview); right.appendChild(btnArt); right.appendChild(btnDel);
+    div.appendChild(left); div.appendChild(right);
+    $('vocabHistRows').appendChild(div);
+  });
+}
+function reviewVocabBatch(ids){
+  const queue = ids.map(id=>WORDS_BY_ID[id]).filter(Boolean);
+  if(!queue.length) return;
+  VS = {queue, idx:0, good:0};
+  $('home').hidden = true; $('vocab').hidden = false; window.scrollTo({top:0});
+  $('vdone').hidden = true; $('vcard').hidden = false;
+  showVocabCard();
+}
 function rubyOf(w){
   return w.r ? '<ruby>'+esc(w.w)+'<rt>'+esc(w.r)+'</rt></ruby>' : esc(w.w);
 }
@@ -548,6 +593,9 @@ function vocabNext(w, good){
   showVocabCard();
 }
 function finishVocab(){
+  if(VS && VS.queue.length){
+    pushVocabHist({id:Date.now().toString(36), at:Date.now(), ids:VS.queue.map(w=>w.id), good:VS.good});
+  }
   clearVocabSession();
   $('vprogbar').style.width='100%'; $('vcount').textContent = VS.queue.length+' / '+VS.queue.length;
   $('vcard').hidden = true; $('vdone').hidden = false;
@@ -596,13 +644,14 @@ function renderVocabArtHome(){
     $('vaHomeRows').appendChild(div);
   });
 }
-$('vaHomeBtn').addEventListener('click', generateVocabArticle);
-async function generateVocabArticle(){
+$('vaHomeBtn').addEventListener('click', ()=>generateVocabArticle());
+async function generateVocabArticle(wordsOverride){
   if(navigator.onLine===false){ $('vaHomeStatus').hidden=false; $('vaHomeStatus').textContent = '📴 オフラインです。ネットに繋いでからもう一度。'; return; }
   const cfg = getCfg();
   if(!cfg.key || !cfg.base || !cfg.model){ $('setBox').open = true; $('keyHint').hidden=false; $('keyIn').focus(); return; }
-  const allWords = pickArticleWords();
+  const allWords = (Array.isArray(wordsOverride) && wordsOverride.length) ? wordsOverride : pickArticleWords();
   if(!allWords.length) return;
+  window.scrollTo({top:0});
   const groups = chunkArr(allWords, 16);
   $('vaHomeBtn').disabled = true; $('vaHomeStatus').hidden = false;
   const t0 = Date.now(); const usage = {in:0,out:0};
