@@ -290,6 +290,10 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
     <h1>記單字</h1>
     <p class="lead">単語を見て読み・意味を思い出してから「答えを見る」。覚えていたら😎、忘れていたら😵を押してください。間隔を空けて復習します。</p>
   </header>
+  <details id="vbatchList" style="margin-bottom:12px">
+    <summary class="note" style="cursor:pointer">この回の単語リストを見る（<span id="vbatchCount">0</span>語）</summary>
+    <div class="vwrap" id="vbatchRows" style="margin-top:8px"></div>
+  </details>
   <div id="vcard"></div>
   <div id="vdone" hidden></div>
 </div>
@@ -565,8 +569,23 @@ function resumeVocabSession(){
   $('vdone').hidden = true; $('vcard').hidden = false;
   showVocabCard();
 }
+function renderVbatchList(){
+  $('vbatchCount').textContent = VS.queue.length;
+  const rows = $('vbatchRows');
+  rows.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  VS.queue.forEach((w,i)=>{
+    const row = document.createElement('div'); row.className = 'vrow'; row.style.cursor = 'default';
+    const mark = i<VS.idx ? '✅ ' : (i===VS.idx ? '▶️ ' : '');
+    row.innerHTML = '<span class="w">'+mark+rubyOf(w)+'</span><span class="vcat">'+esc(w.lv||w.cat)+'</span>';
+    if(i===VS.idx) row.style.fontWeight = '700';
+    frag.appendChild(row);
+  });
+  rows.appendChild(frag);
+}
 function showVocabCard(){
   saveVocabSession();
+  renderVbatchList();
   $('vcount').textContent = (VS.idx+1)+' / '+VS.queue.length;
   $('vprogbar').style.width = (VS.idx/VS.queue.length*100)+'%';
   const w = VS.queue[VS.idx];
