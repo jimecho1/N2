@@ -142,27 +142,6 @@ details.set summary{cursor:pointer;font-weight:700;color:var(--accent)}
 .vwrap{display:flex;flex-direction:column}
 .vdone{text-align:center;padding:24px 0}
 .vdone .big{font-family:var(--display);font-size:40px;font-weight:800}
-/* ---- 文章分析 (読解ラボ) ---- */
-textarea.t{display:block;width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);min-height:160px;resize:vertical}
-.rd-s{background:var(--sheet);border:1px solid var(--line);border-radius:8px;margin-top:10px}
-.rd-s>summary{list-style:none;cursor:pointer;display:flex;gap:10px;padding:12px 14px;align-items:flex-start}
-.rd-s>summary::-webkit-details-marker{display:none}
-.rd-n{flex:none;font-family:var(--mono);color:var(--accent);min-width:2em}
-.rd-t{font-family:var(--display);font-weight:600;font-size:17px;line-height:1.7;min-width:0;flex:1;overflow-wrap:anywhere}
-.rd-st{flex:none;font-size:13px}
-.rd-body{padding:4px 14px 16px;border-top:1px solid var(--line);display:grid;gap:14px}
-.rd-body h4{margin:12px 0 4px;font-size:12px;letter-spacing:.08em;color:var(--muted)}
-.rd-body table{border-collapse:collapse;width:100%;font-size:14px}
-.rd-body th,.rd-body td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
-.rd-body th{color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap}
-.rd-body p{margin:0 0 6px}
-.rd-body ul{margin:8px 0 0;padding:0;list-style:none}
-.rd-yaku{background:var(--accent-soft);border-radius:6px;padding:10px 12px}
-body.rd-noyaku .rd-yaku{display:none}
-.rd-q{margin-top:10px}
-.rd-q .o{display:block;width:100%;text-align:left;font:inherit;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:6px;cursor:pointer}
-.rd-q .o.right{background:var(--ok-soft);border-color:var(--ok)}
-.rd-q .o.wrong{background:var(--red-soft);border-color:var(--red)}
 </style>
 </head>
 <body>
@@ -212,13 +191,6 @@ body.rd-noyaku .rd-yaku{display:none}
     <button class="btn" id="vaHomeBtn">✨ 新しい練習文章を作る</button>
     <p class="note" id="vaHomeStatus" hidden style="margin-top:8px"></p>
     <div class="rows" id="vaHomeRows" style="margin-top:10px"></div>
-  </div>
-
-  <div class="card" id="rdHomeCard">
-    <h3>📖 文章分析 <small class="note">（読解ラボ）</small></h3>
-    <p class="note" style="margin:0 0 10px">好きな日本語の文章を貼ると、一文ずつ 単語・文法・紛らわしい表現の比較・廣東話意訳 を作ります。分析結果はこの端末に保存されます。</p>
-    <button class="btn" id="rdNew">＋ 文章を貼って分析する</button>
-    <div class="rows" id="rdHomeRows" style="margin-top:10px"></div>
   </div>
 
   <div class="card" id="testsCard" hidden>
@@ -314,32 +286,6 @@ body.rd-noyaku .rd-yaku{display:none}
   </header>
   <div id="vcard"></div>
   <div id="vdone" hidden></div>
-</div>
-
-<!-- ============ READER (文章分析) ============ -->
-<div id="reader" hidden>
-  <div class="bar">
-    <button class="btn ghost small" id="rdBack">← 戻る</button>
-    <button class="btn small" id="rdAll" hidden>全文を分析</button>
-    <button class="btn ghost small" id="rdYakuBtn" hidden>🇭🇰 意訳を隠す</button>
-    <button class="btn ghost small" id="rdQuizBtn" hidden>✏️ 練習問題</button>
-  </div>
-  <header class="top">
-    <div class="eyebrow">文章分析</div>
-    <h1 id="rdH">読解ラボ</h1>
-  </header>
-  <div class="card" id="rdInput">
-    <label class="f" for="rdTitle">タイトル（任意）</label>
-    <input class="t" id="rdTitle" type="text" autocomplete="off" placeholder="例：第1話・冒頭">
-    <label class="f" for="rdText" style="margin-top:10px">日本語の文章を貼り付け</label>
-    <textarea class="t" id="rdText" placeholder="ここに文章を貼ってください（1回あたり3000字くらいまでがおすすめ）"></textarea>
-    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="rdSplit">一文ずつに分ける</button></div>
-    <p class="note" id="rdInMsg"></p>
-  </div>
-  <p class="note" id="rdProg" hidden></p>
-  <p class="err" id="rdErr" hidden></p>
-  <div id="rdList"></div>
-  <div id="rdQuiz" hidden></div>
 </div>
 
 <!-- ============ VOCAB ARTICLE (AI練習文章) ============ -->
@@ -713,189 +659,6 @@ $('vaBody').addEventListener('click', ev=>{
 });
 $('vaBack').addEventListener('click', ()=>{ $('vocabArticle').hidden=true; $('home').hidden=false; });
 
-/* ---------- 文章分析 (読解ラボ) ---------- */
-K.rd = 'n2a.reader';
-function getRd(){ return lsGet(K.rd, []); }
-const RD_MAX = 200;
-function putRd(t){
-  const cur = getRd();
-  if(!cur.some(x=>x.id===t.id) && cur.length >= RD_MAX) return false;
-  const l = cur.filter(x=>x.id!==t.id); l.unshift(t); lsSet(K.rd, l); return true;
-}
-let curRd = null, rdBusy = false;
-function splitSents(text){
-  const out = [];
-  String(text).replace(/\r/g,'').split('\n').forEach(line=>{
-    line = line.replace(/^[\s　]+|[\s　]+$/g,''); if(!line) return;
-    (line.match(/[^。！？!?]*(?:[。！？!?]+[」』）)]*|$)/g) || [line]).forEach(p=>{ p = p.trim(); if(p) out.push(p); });
-  });
-  const m = [];
-  out.forEach(s=>{ if(m.length && (/^[」』）)…・！？!?。]+$/.test(s) || (/[」』）)]$/.test(m[m.length-1]) && /^[とってのでがにはをもや、]/.test(s)))) m[m.length-1] += s; else m.push(s); });
-  return m;
-}
-function rdTable(head, rows){
-  return '<div class="tblwrap"><table><tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>'+
-    rows.map(r=>'<tr>'+r.map(c=>'<td>'+esc(c)+'</td>').join('')+'</tr>').join('')+'</table></div>';
-}
-function rdAnaHTML(a){
-  let h = '';
-  if(Array.isArray(a.w) && a.w.length) h += '<div><h4>1. 単語分解</h4>'+rdTable(['単語','品詞','JLPT','意味'], a.w.map(r=>[r[0],r[1],r[2],r[3]]))+'</div>';
-  if(Array.isArray(a.g) && a.g.length) h += '<div><h4>2. 文法構造の解説</h4>'+a.g.map(p=>'<p>'+esc(p)+'</p>').join('')+'</div>';
-  if(a.c && Array.isArray(a.c.r)) h += '<div><h4>3. 紛らわしい表現の比較｜'+esc(a.c.t||'')+'</h4>'+rdTable(a.c.h||[], a.c.r)+
-    '<ul>'+(a.c.ex||[]).map(e=>'<li>'+(e[0]==='ok'?'⭕️ ':'❌ ')+esc(e[1])+'</li>').join('')+'</ul></div>';
-  if(a.y) h += '<div class="rd-yaku"><b>4. 🇭🇰 意訳</b>　'+esc(a.y)+'</div>';
-  return h;
-}
-function rdSentHTML(i, s){
-  return '<details class="rd-s" data-i="'+i+'"><summary><span class="rd-n">'+(i+1)+'</span><span class="rd-t">'+esc(s.s)+'</span><span class="rd-st">'+(s.a?'✅':'')+'</span></summary>'+
-    '<div class="rd-body">'+(s.a ? rdAnaHTML(s.a) : '<p class="note">分析中…（初回のみ数秒かかります）</p>')+'</div></details>';
-}
-function renderRdList(){
-  $('rdList').innerHTML = curRd.sents.map((s,i)=>rdSentHTML(i,s)).join('');
-  const done = curRd.sents.filter(s=>s.a).length;
-  $('rdProg').hidden = false; $('rdProg').textContent = done+' / '+curRd.sents.length+' 文を分析済み';
-  $('rdH').textContent = curRd.title || '読解ラボ';
-}
-function renderRdHome(){
-  const box = $('rdHomeRows'); box.innerHTML = '';
-  const n = getRd().length;
-  $('rdNew').textContent = '＋ 文章を貼って分析する' + (n ? '（保存 '+n+' / '+RD_MAX+'）' : '');
-  getRd().forEach(t=>{
-    const done = t.sents.filter(s=>s.a).length;
-    const div = document.createElement('div'); div.className = 'row link';
-    div.innerHTML = '<span><button class="delbtn" type="button" aria-label="削除">✕</button>'+esc(t.title||'無題')+'</span><span>'+done+' / '+t.sents.length+'</span>';
-    div.querySelector('.delbtn').addEventListener('click', ev=>{
-      ev.stopPropagation();
-      const b = ev.currentTarget;
-      if(!b.dataset.armed){ b.dataset.armed = 1; b.textContent = '削除？'; b.classList.add('armed'); setTimeout(()=>{ b.dataset.armed=''; b.textContent='✕'; b.classList.remove('armed'); }, 3000); return; }
-      lsSet(K.rd, getRd().filter(x=>x.id!==t.id)); renderRdHome();
-    });
-    div.addEventListener('click', ()=>openRd(t));
-    box.appendChild(div);
-  });
-}
-function openRd(t){
-  curRd = t; $('rdInput').hidden = true; $('rdQuiz').hidden = true; $('rdErr').hidden = true;
-  ['rdAll','rdYakuBtn','rdQuizBtn'].forEach(id=>$(id).hidden = false);
-  renderRdList();
-  $('home').hidden = true; $('reader').hidden = false; window.scrollTo({top:0});
-}
-$('rdNew').addEventListener('click', ()=>{
-  curRd = null; $('rdTitle').value = ''; $('rdText').value = ''; $('rdInMsg').textContent = '';
-  $('rdInput').hidden = false; $('rdList').innerHTML = ''; $('rdProg').hidden = true; $('rdErr').hidden = true; $('rdQuiz').hidden = true;
-  ['rdAll','rdYakuBtn','rdQuizBtn'].forEach(id=>$(id).hidden = true);
-  $('rdH').textContent = '読解ラボ';
-  $('home').hidden = true; $('reader').hidden = false; window.scrollTo({top:0});
-});
-$('rdBack').addEventListener('click', ()=>{ $('reader').hidden = true; $('home').hidden = false; renderRdHome(); });
-$('rdSplit').addEventListener('click', ()=>{
-  const txt = $('rdText').value.trim();
-  if(!txt){ $('rdInMsg').textContent = '文章を貼ってください。'; return; }
-  const sents = splitSents(txt);
-  if(sents.length > 120){ $('rdInMsg').textContent = '長すぎます（'+sents.length+'文）。120文以内に分けてください。'; return; }
-  const t = {id: Date.now().toString(36), at: Date.now(), title: $('rdTitle').value.trim() || ('文章 '+hkDate()), sents: sents.map(s=>({s}))};
-  if(!putRd(t)){ $('rdInMsg').textContent = '保存数が上限（'+RD_MAX+'篇）です。ホームの一覧から不要な文章を削除してください。'; return; }
-  openRd(t);
-});
-$('rdYakuBtn').addEventListener('click', ()=>{
-  const off = document.body.classList.toggle('rd-noyaku');
-  $('rdYakuBtn').textContent = off ? '🇭🇰 意訳を表示' : '🇭🇰 意訳を隠す';
-});
-function rdPrompt(idxs){
-  const t = curRd;
-  const list = idxs.map((i,k)=>(k+1)+'. '+t.sents[i].s).join('\n');
-  const prev = idxs[0] > 0 ? t.sents[idxs[0]-1].s : '', next = idxs[idxs.length-1] < t.sents.length-1 ? t.sents[idxs[idxs.length-1]+1].s : '';
-  const system = 'あなたは熟練した日本語教師で、広東語（香港）話者の JLPT N2 学習者を教えています。出力は必ず JSON のみ（説明文・コードブロックなし）。';
-  const user = '次の文を、1文ずつ分析してください。前後の文は文脈の参考です（分析しない）。\n'+
-    (prev?'【前の文】'+prev+'\n':'')+(next?'【次の文】'+next+'\n':'')+'\n【分析する文】\n'+list+'\n\n'+
-`ルール：
-- 解説は 100% 日本語（親切で生き生きした先生の口調）。意訳 y だけ 口語の広東話（香港で自然に話す言い方）。
-- ふりがな禁止。漢字はそのまま書く。読み方が文法の考点になる場合だけ g の中で一言触れる。
-- w：単語分解 3〜8語。[単語, 品詞, JLPTレベル(N5〜N1。俗語・固有名詞は「俗語」「固有」), 意味(日本語で簡潔に)]。助詞だけの項目は入れず、文型・慣用表現は1項目にまとめる。
-- g：文法構造の解説 2〜4項目。文の構成、接続（名詞／動詞／形容詞）、動詞活用、助詞の役割、文型。
-- c：紛らわしい表現の比較を 1組。t=「A vs B」の題、h=表の見出し（例：表現・ニュアンス・使える場面）、r=行の配列（2〜3行）、ex=[["ok","正しい例文"],["ng","直すと不自然になる例文と一言理由"]] を 2〜3個。
-- y：自然な口語の広東話の意訳（硬い直訳にしない）。
-- 俗語・乱暴な表現・性的な内容が出ても、語学の説明として中立に簡潔に扱う。
-出力形式：{"items":[{"n":1,"w":[["単語","品詞","N2","意味"]],"g":["..."],"c":{"t":"A vs B","h":["表現","ニュアンス","使える場面"],"r":[["...","...","..."]],"ex":[["ok","..."],["ng","..."]]},"y":"..."}]}  items は上の文の順番で、文の数と同じ数。`;
-  return {system, user};
-}
-async function rdAnalyze(idxs){
-  if(rdBusy) return false;
-  if(navigator.onLine===false){ $('rdErr').hidden=false; $('rdErr').textContent='📴 オフラインです。ネットに繋いでからもう一度。'; return false; }
-  const cfg = getCfg();
-  if(!cfg.key || !cfg.base || !cfg.model){ $('rdErr').hidden=false; $('rdErr').textContent='⚠️ ホームの「設定」で AI サービスと API キーを入れてください。'; return false; }
-  rdBusy = true; $('rdErr').hidden = true;
-  try{
-    const {system, user} = rdPrompt(idxs);
-    const txt = await callChat(cfg, system, user, null, undefined, 6000, {in:0,out:0});
-    const raw = parseLooseJSON(txt);
-    const items = Array.isArray(raw.items) ? raw.items : [];
-    if(items.length < idxs.length) throw new Error('分析結果の数が合いません。もう一度試してください。');
-    idxs.forEach((i,k)=>{ const it = items[k]; if(it && (it.w||it.g)) curRd.sents[i].a = {w:it.w||[], g:it.g||[], c:it.c||null, y:it.y||''}; });
-    putRd(curRd);
-    return true;
-  }catch(e){
-    $('rdErr').hidden = false; $('rdErr').textContent = '❌ '+e.message; return false;
-  }finally{ rdBusy = false; }
-}
-function rdRefresh(i){
-  const d = $('rdList').querySelector('details[data-i="'+i+'"]'); if(!d) return;
-  const s = curRd.sents[i];
-  d.querySelector('.rd-body').innerHTML = s.a ? rdAnaHTML(s.a) : '<p class="note">分析できませんでした。もう一度開いてみてください。</p>';
-  d.querySelector('.rd-st').textContent = s.a ? '✅' : '';
-  const done = curRd.sents.filter(x=>x.a).length;
-  $('rdProg').textContent = done+' / '+curRd.sents.length+' 文を分析済み';
-}
-$('rdList').addEventListener('toggle', async ev=>{
-  const d = ev.target; if(!d.open || !d.classList.contains('rd-s')) return;
-  const i = +d.dataset.i;
-  if(curRd.sents[i].a) return;
-  const ok = await rdAnalyze([i]);
-  if(ok) rdRefresh(i); else d.querySelector('.rd-body').innerHTML = '<p class="note">分析できませんでした。上のエラーを確認して、もう一度開いてください。</p>';
-}, true);
-$('rdAll').addEventListener('click', async ()=>{
-  const todo = curRd.sents.map((s,i)=>s.a?-1:i).filter(i=>i>=0);
-  if(!todo.length){ $('rdProg').textContent = 'すべて分析済みです。'; return; }
-  $('rdAll').disabled = true;
-  const t0 = Date.now(); let n = 0;
-  const tick = setInterval(()=>{ $('rdProg').textContent = '✍️ 分析中… '+n+' / '+todo.length+' 文　'+Math.round((Date.now()-t0)/1000)+'秒（画面を開いたままに）'; }, 500);
-  for(let k=0; k<todo.length; k+=4){
-    const chunk = todo.slice(k, k+4);
-    const ok = await rdAnalyze(chunk);
-    if(!ok) break;
-    n += chunk.length; chunk.forEach(rdRefresh);
-  }
-  clearInterval(tick); $('rdAll').disabled = false;
-  const done = curRd.sents.filter(x=>x.a).length;
-  $('rdProg').textContent = done+' / '+curRd.sents.length+' 文を分析済み';
-});
-$('rdQuizBtn').addEventListener('click', async ()=>{
-  const pool = curRd.sents.map((s,i)=>s.a?s:null).filter(Boolean);
-  const cfg = getCfg();
-  if(!cfg.key || !cfg.base || !cfg.model){ $('rdErr').hidden=false; $('rdErr').textContent='⚠️ ホームの「設定」で AI サービスと API キーを入れてください。'; return; }
-  const src = (pool.length ? pool : curRd.sents).slice(0, 40).map(s=>s.s).join('\n');
-  $('rdQuizBtn').disabled = true; $('rdErr').hidden = true; $('rdQuiz').hidden = false; $('rdQuiz').innerHTML = '<p class="note">✍️ 問題を作っています…</p>';
-  try{
-    const system = 'あなたは JLPT N2 の問題作成者です。出力は JSON のみ。';
-    const user = '次の文章に出てくる N2 レベルの文型・語彙から、4択問題を5問作ってください。問題文は文章の文を土台にして（そのままでも一部変えてもよい）、空欄（　　）を1つ作ります。形式は「文法形式の判断」。ふりがな禁止。解説 e は日本語で、なぜ他の選択肢がだめかを簡潔に。\n\n【文章】\n'+src+
-      '\n\n出力：{"qs":[{"q":"問題文","o":["1","2","3","4"],"a":0,"e":"解説"}]}  a は正解の番号（0〜3）。';
-    const raw = parseLooseJSON(await callChat(cfg, system, user, null, undefined, 4000, {in:0,out:0}));
-    const qs = (raw.qs||[]).filter(checkQ);
-    if(!qs.length) throw new Error('問題の形式エラー。もう一度試してください。');
-    $('rdQuiz').innerHTML = '<h3 style="margin:18px 0 6px">✏️ 練習問題</h3>'+qs.map((q,qi)=>
-      '<div class="card rd-q"><b>Q'+(qi+1)+'.</b> '+esc(q.q)+q.o.map((o,j)=>'<button type="button" class="o" data-c="'+(j===+q.a?1:0)+'">'+(j+1)+'. '+esc(o)+'</button>').join('')+
-      '<div class="note" hidden style="margin-top:8px">💡 '+esc(q.e||'')+'</div></div>').join('');
-  }catch(e){ $('rdQuiz').innerHTML = '<p class="err">❌ '+esc(e.message)+'</p>'; }
-  finally{ $('rdQuizBtn').disabled = false; }
-});
-$('rdQuiz').addEventListener('click', ev=>{
-  const b = ev.target.closest('.o'); if(!b) return;
-  const card = b.parentElement;
-  card.querySelectorAll('.o').forEach(o=>{ o.classList.toggle('right', o.dataset.c==='1'); if(o===b && o.dataset.c!=='1') o.classList.add('wrong'); });
-  card.querySelector('.note').hidden = false;
-});
-renderRdHome();
-
 function renderHome(){
   $('homeDate').textContent = 'JLPT N2 ・ ' + hkDate().replace(/-/g,'.') + ' ・ 言語知識＋読解';
   const cfg = getCfg();
@@ -965,7 +728,7 @@ $('saveSet').addEventListener('click',()=>{
   renderHome();
 });
 $('exportBtn').addEventListener('click',()=>{
-  const data = {v:1, exportedAt:new Date().toISOString(), tests:getTests(), results:getResults(), states:{}, reader:getRd()};
+  const data = {v:1, exportedAt:new Date().toISOString(), tests:getTests(), results:getResults(), states:{}};
   data.tests.forEach(t=>{ const s = lsGet(K.st+t.id,null); if(s) data.states[t.id]=s; });
   try{ for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(k && k.indexOf(K.st)===0){ const id = k.slice(K.st.length); if(!data.states[id]) data.states[id] = lsGet(k,null); } } }catch(e){}
   const blob = new Blob([JSON.stringify(data)],{type:'application/json'});
@@ -985,7 +748,6 @@ $('importIn').addEventListener('change', async e=>{
     (d.results||[]).forEach(r=>{ if(!rk.has(r.testId+'@'+r.at)) res.push(r); });
     lsSet(K.results, res);
     Object.entries(d.states||{}).forEach(([id,s])=>{ if(!lsGet(K.st+id,null)) lsSet(K.st+id,s); });
-    { const rd = getRd(); const ids = new Set(rd.map(x=>x.id)); (d.reader||[]).forEach(x=>{ if(!ids.has(x.id)) rd.push(x); }); lsSet(K.rd, rd.slice(0,RD_MAX)); renderRdHome(); }
     $('setMsg').textContent = '📥 読み込みました';
     renderHome();
   }catch(err){ $('setMsg').textContent = '読み込めませんでした：'+err.message; }
