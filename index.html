@@ -508,15 +508,20 @@ function rubyOf(w){
 function wordBack(w){
   if(w.src==='quiz') return '正解：<b>'+rubyOf(w)+'</b><div class="tblwrap">'+w.e+'</div>';
   return '<div class="fans">'+rubyOf(w)+'　<span class="vcat">'+esc(w.pos)+'</span> <span class="vcat">'+esc(w.lv)+'</span></div>'+
-    '<div>🇭🇰 '+esc(w.hk)+'</div>'+
     (w.ex ? '<div style="margin-top:6px">例：'+(w.exr||esc(w.ex))+'</div>' : '')+
     (w.rel ? '<div class="note" style="margin-top:6px">類/対：'+esc(w.rel)+'</div>' : '')+
     (w.note ? '<div class="note" style="margin-top:4px">💡 '+esc(w.note)+'</div>' : '');
 }
+function stripRuby(html){
+  // the front of the flashcard must show plain kanji, no readings at all -
+  // not even for the OTHER words in the sentence - so the person has to
+  // recall everything themselves before flipping the card.
+  return html.replace(/<ruby>(.*?)<rt>.*?<\/rt><\/ruby>/g, '$1');
+}
 function frontWord(w){
   if(w.src==='quiz') return w.q;
-  if(w.exrFront) return w.exrFront;
-  if(w.exr) return w.exr;
+  if(w.exrFront) return stripRuby(w.exrFront);
+  if(w.exr) return stripRuby(w.exr);
   if(w.ex && w.ex.includes(w.w)) return esc(w.ex).replace(esc(w.w), '<u>'+esc(w.w)+'</u>');
   return '<u>'+esc(w.w)+'</u>';
 }
@@ -1413,11 +1418,21 @@ renderHome();
 loadBank();
 loadWords();
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  let swReg = null;
+  navigator.serviceWorker.register('sw.js').then(r=>{ swReg = r; }).catch(()=>{});
   let swRefreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', ()=>{
     if(swRefreshing) return; swRefreshing = true; location.reload();
   });
+  // Browsers only recheck sw.js on their own schedule (often throttled to
+  // once per 24h), which is why a fresh deploy can sit unnoticed for a long
+  // time even with cache:'no-store' in the SW's own fetch handler. Actively
+  // ask for an update whenever the tab/app regains focus, so a new version
+  // is picked up the next time the person actually opens the app instead of
+  // waiting on the browser's own timer.
+  const askForUpdate = () => { if(swReg) swReg.update().catch(()=>{}); };
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) askForUpdate(); });
+  window.addEventListener('focus', askForUpdate);
 }
 window.addEventListener('online', ()=>{ $('genErr').hidden = true; });
 })();
